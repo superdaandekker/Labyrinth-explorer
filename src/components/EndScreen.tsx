@@ -1,8 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { 
-  Skull, RotateCcw, Trophy, ChevronRight, Zap 
-} from 'lucide-react';
+import { Skull, RotateCcw, Trophy, ChevronRight, Zap } from 'lucide-react';
 
 interface EndScreenProps {
   gameState: 'won' | 'complete' | 'gameover';
@@ -11,6 +9,8 @@ interface EndScreenProps {
   elapsedTime: number;
   moves: number;
   coins: number;
+  score?: number;
+  rank?: { label: string; color: string };
   revive: () => void;
   startLevel: (level: number) => void;
   restartGame: () => void;
@@ -19,18 +19,9 @@ interface EndScreenProps {
 
 const containerVariants = {
   hidden: { opacity: 0, scale: 0.8, y: 50, rotateX: 20 },
-  visible: { 
-    opacity: 1, 
-    scale: 1, 
-    y: 0, 
-    rotateX: 0,
-    transition: { 
-      type: 'spring',
-      stiffness: 300,
-      damping: 25,
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
+  visible: {
+    opacity: 1, scale: 1, y: 0, rotateX: 0,
+    transition: { type: 'spring', stiffness: 300, damping: 25, staggerChildren: 0.1, delayChildren: 0.2 }
   }
 };
 
@@ -40,22 +31,17 @@ const itemVariants = {
 };
 
 const EndScreen: React.FC<EndScreenProps> = ({
-  gameState,
-  playerHealth,
-  currentLevel,
-  elapsedTime,
-  moves,
-  coins,
-  revive,
-  startLevel,
-  restartGame,
-  nextLevel
+  gameState, playerHealth, currentLevel, elapsedTime, moves, coins,
+  score, rank, revive, startLevel, restartGame, nextLevel
 }) => {
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
+
+  const isWin = gameState === 'won' || gameState === 'complete';
+
   return (
     <motion.div
       key="end-screen"
@@ -65,26 +51,49 @@ const EndScreen: React.FC<EndScreenProps> = ({
       exit={{ opacity: 0, y: -50, scale: 0.9, rotateX: -20 }}
       className="z-10 text-center bg-zinc-900/80 backdrop-blur-xl p-6 sm:p-12 rounded-[2rem] border border-zinc-800 shadow-2xl max-w-sm mx-4"
     >
-      <motion.div 
+      <motion.div
         variants={itemVariants}
         className={`w-16 h-16 sm:w-20 sm:h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg ${
-          gameState === 'gameover' 
-            ? 'bg-gradient-to-br from-red-500 to-red-700 shadow-red-500/20' 
+          gameState === 'gameover'
+            ? 'bg-gradient-to-br from-red-500 to-red-700 shadow-red-500/20'
             : 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-orange-500/20'
         }`}
       >
-        {gameState === 'gameover' ? (playerHealth <= 0 ? <Skull size={32} className="text-white" /> : <RotateCcw size={32} className="text-white" />) : <Trophy size={32} className="text-white" />}
+        {gameState === 'gameover'
+          ? (playerHealth <= 0 ? <Skull size={32} className="text-white" /> : <RotateCcw size={32} className="text-white" />)
+          : <Trophy size={32} className="text-white" />}
       </motion.div>
+
       <motion.h2 variants={itemVariants} className="text-2xl sm:text-3xl font-black italic mb-1 sm:mb-2 tracking-tight text-white">
-        {gameState === 'gameover' ? (playerHealth <= 0 ? 'YOU DIED' : 'TIME EXPIRED') : 'SECTOR CLEAR!'}
+        {gameState === 'gameover'
+          ? (playerHealth <= 0 ? 'YOU DIED' : 'TIME EXPIRED')
+          : gameState === 'complete' ? 'GAME COMPLETE!' : 'SECTOR CLEAR!'}
       </motion.h2>
-      <motion.p variants={itemVariants} className="text-zinc-400 mb-6 sm:mb-8 text-sm sm:text-base">
-        {gameState === 'gameover' 
-          ? (playerHealth <= 0 ? 'The spikes were too sharp. Try again?' : 'The labyrinth claimed another soul. Try again?') 
+
+      <motion.p variants={itemVariants} className="text-zinc-400 mb-4 sm:mb-6 text-sm sm:text-base">
+        {gameState === 'gameover'
+          ? (playerHealth <= 0 ? 'The labyrinth claimed your soul. Try again?' : 'The clock ran out. Try again?')
           : `Sector ${currentLevel + 1} conquered in ${formatTime(elapsedTime)}.`}
       </motion.p>
-      
-      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+
+      {isWin && score !== undefined && rank && (
+        <motion.div
+          variants={itemVariants}
+          className="flex items-center justify-center gap-3 mb-4 sm:mb-6"
+        >
+          <div className={`text-5xl sm:text-6xl font-black italic ${rank.color} drop-shadow-lg`}>
+            {rank.label}
+          </div>
+          <div className="text-left">
+            <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Run Score</div>
+            <div className="font-mono text-2xl sm:text-3xl font-black text-white">
+              {score.toLocaleString()}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      <motion.div variants={itemVariants} className="grid grid-cols-2 gap-2 sm:gap-3 mb-5 sm:mb-7">
         <div className="p-3 sm:p-4 bg-zinc-950 rounded-2xl border border-zinc-800">
           <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Time</div>
           <div className="font-mono text-lg sm:text-xl text-white">{formatTime(elapsedTime)}</div>
@@ -113,6 +122,12 @@ const EndScreen: React.FC<EndScreenProps> = ({
             <RotateCcw size={18} />
             TRY AGAIN
           </button>
+          <button
+            onClick={restartGame}
+            className="mt-1 w-full py-2 text-zinc-500 font-bold text-[10px] sm:text-xs hover:text-zinc-300 transition-colors"
+          >
+            BACK TO MENU
+          </button>
         </motion.div>
       ) : gameState === 'complete' ? (
         <motion.button
@@ -131,16 +146,6 @@ const EndScreen: React.FC<EndScreenProps> = ({
         >
           NEXT LEVEL
           <ChevronRight size={18} />
-        </motion.button>
-      )}
-      
-      {gameState === 'gameover' && (
-        <motion.button
-          variants={itemVariants}
-          onClick={restartGame}
-          className="mt-3 sm:mt-4 w-full py-2 text-zinc-500 font-bold text-[10px] sm:text-xs hover:text-zinc-300 transition-colors"
-        >
-          BACK TO MENU
         </motion.button>
       )}
     </motion.div>

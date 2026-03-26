@@ -1,8 +1,8 @@
-import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull } from 'lucide-react';
+import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost } from 'lucide-react';
 import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier } from './types';
 import React from 'react';
 
-// Maze constants
+// Maze cell type constants
 export const CELL_SIZE = 30;
 export const WALL = 1;
 export const PATH = 0;
@@ -19,6 +19,8 @@ export const ILLUSIONARY_WALL = 11;
 export const POWERUP_SHIELD = 12;
 export const POWERUP_SPEED = 13;
 export const POWERUP_MAP = 14;
+export const KEY = 15;
+export const KEY_DOOR = 16;
 
 export const DAILY_MODIFIERS: DailyModifier[] = [
   {
@@ -73,14 +75,11 @@ export const DAILY_MODIFIERS: DailyModifier[] = [
   {
     id: 'LIMITED_VISION',
     name: 'Limited Vision',
-    description: 'Vision is extremely limited. Only your immediate surroundings are visible!',
+    description: 'Only your immediate surroundings are visible!',
     color: 'text-zinc-600',
     icon: React.createElement(EyeOff, { className: "opacity-50" })
   }
 ];
-
-// Helper for Ghost icon which was missing in imports above but used in DAILY_MODIFIERS
-import { Ghost } from 'lucide-react';
 
 export const POWERUPS: Record<string, PowerupConfig> = {
   shield: {
@@ -123,61 +122,66 @@ export const POWERUPS: Record<string, PowerupConfig> = {
 export const TUTORIALS: Record<string, TutorialConfig> = {
   coins: {
     title: 'Munten Verzamelen',
-    description: 'Verzamel munten om nieuwe thema\'s en hints te kopen! Je vindt ze vanaf level 10.',
+    description: 'Verzamel munten om nieuwe thema\'s en hints te kopen!',
     icon: React.createElement(Coins, { className: "text-amber-400", size: 32 })
   },
   secrets: {
     title: 'Geheime Muren',
-    description: 'Sommige muren hebben barsten. Sla er 3 keer tegenaan om ze te breken en geheime kamers te vinden!',
+    description: 'Sommige muren hebben barsten. Sla er 3 keer tegenaan om ze te breken!',
     icon: React.createElement(Zap, { className: "text-cyan-400", size: 32 })
   },
   puzzles: {
     title: 'Hendels & Deuren',
-    description: 'Gebruik hendels om deuren op een andere plek in het doolhof te openen. Zoek de hendel om verder te komen!',
+    description: 'Gebruik hendels om deuren op een andere plek in het doolhof te openen!',
     icon: React.createElement(Gamepad2, { className: "text-purple-400", size: 32 })
   },
   spikes: {
     title: 'Gevaarlijke Stekels',
-    description: 'Pas op voor de stekels! Ze kosten je 20 gezondheidspunten per keer dat je eroverheen loopt.',
+    description: 'Pas op voor de stekels! Ze kosten je gezondheidspunten.',
     icon: React.createElement(Skull, { className: "text-red-500", size: 32 })
   },
   gas: {
     title: 'Giftig Gas',
-    description: 'Blijf uit de buurt van de giftige dampen! Ze kosten je 10 gezondheidspunten bij elke stap.',
+    description: 'Blijf uit de buurt van de giftige dampen!',
     icon: React.createElement(Sparkles, { className: "text-purple-500", size: 32 })
   },
   movement: {
-    title: 'Nieuwe Besturing',
-    description: 'Raak het scherm aan en sleep in een richting om te bewegen. Je kunt ook swipen in de instellingen!',
+    title: 'Besturing',
+    description: 'Raak het scherm aan en sleep in een richting om te bewegen.',
     icon: React.createElement(Gamepad2, { className: "text-cyan-400", size: 32 })
+  },
+  key: {
+    title: 'Sleutel Gevonden!',
+    description: 'Je hebt een sleutel opgepakt. Zoek de gouden deur om hem te gebruiken!',
+    icon: React.createElement(KeyRound, { className: "text-yellow-400", size: 32 })
   }
 };
 
 export const GAME_MODES: Record<GameMode, GameModeConfig> = {
-  normal: { 
-    label: 'Normal', 
+  normal: {
+    label: 'Normal',
     description: 'Standard gameplay, no time pressure.',
-    baseSize: 15, 
-    timeLimit: null, 
-    color: 'text-cyan-400', 
+    baseSize: 15,
+    timeLimit: null,
+    color: 'text-cyan-400',
     branchingFactor: 0.1
   },
-  timed: { 
-    label: 'Timed', 
-    description: 'Race against the clock! More time for deeper sectors.',
-    baseSize: 17, 
-    timeLimit: 60, 
-    color: 'text-yellow-400', 
-    branchingFactor: 0.3 
+  timed: {
+    label: 'Timed',
+    description: 'Race against the clock!',
+    baseSize: 17,
+    timeLimit: 60,
+    color: 'text-yellow-400',
+    branchingFactor: 0.3
   },
-  premium: { 
-    label: 'Premium', 
+  premium: {
+    label: 'Premium',
     description: 'The ultimate challenge. Complex mazes and elite rewards.',
-    baseSize: 21, 
-    timeLimit: null, 
-    color: 'text-purple-500', 
+    baseSize: 21,
+    timeLimit: null,
+    color: 'text-purple-500',
     branchingFactor: 0.05,
-    price: 500 
+    price: 500
   },
   hard: {
     label: 'Hard',
@@ -231,6 +235,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'Unlock all available themes',
     icon: React.createElement(ShoppingBag, { size: 20, className: "text-emerald-400" }),
     condition: (stats) => stats.unlockedThemesCount >= 3
+  },
+  {
+    id: 'lockpicker',
+    title: 'Lockpicker',
+    description: 'Use a key to open a locked door',
+    icon: React.createElement(KeyRound, { size: 20, className: "text-yellow-400" }),
+    condition: (stats) => stats.usedKey === true
   }
 ];
 
@@ -337,10 +348,7 @@ export const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
+    transition: { staggerChildren: 0.1, delayChildren: 0.2 }
   }
 };
 

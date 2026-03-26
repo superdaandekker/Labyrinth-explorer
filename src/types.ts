@@ -20,6 +20,7 @@ export interface LeaderboardEntry {
   gameMode: GameMode;
   time: number;
   moves: number;
+  score?: number;
   date: string;
 }
 
@@ -73,10 +74,15 @@ export interface ActiveModifier {
 }
 
 export interface JoystickState {
-  startX: number;
-  startY: number;
-  currentX: number;
-  currentY: number;
+  startX?: number;
+  startY?: number;
+  currentX?: number;
+  currentY?: number;
+  active?: boolean;
+  x?: number;
+  y?: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export interface TrailPoint {
