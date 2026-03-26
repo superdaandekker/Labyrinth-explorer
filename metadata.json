@@ -1,0 +1,5 @@
+{
+  "name": "Labyrinth Explorer",
+  "description": "A challenging multi-level maze game where players must find their way through increasingly complex labyrinths.",
+  "requestFramePermissions": []
+}
