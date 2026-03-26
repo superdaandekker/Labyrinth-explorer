@@ -1,12 +1,14 @@
 import { useCallback } from 'react';
-import { GameMode, GameState, PowerupState, ActiveModifier, Point } from '../types';
-import { GAME_MODES, ACHIEVEMENTS, DAILY_MODIFIERS } from '../constants';
-import generateMaze, { findPath } from '../utils/mazeGenerator';
+import { GameMode, GameState, PowerupState, ActiveModifier, Point, TrailPoint } from '../types';
+import { GAME_MODES, ACHIEVEMENTS, DAILY_MODIFIERS, ILLUSIONARY_WALL, WALL } from '../constants';
+import generateMaze, { findPath, seededRandom } from '../utils/mazeGenerator';
+import { getDailyModifierIndex } from '../utils/dailyChallenge';
 import { audioManager } from '../audio/audioManager';
 
 interface UseGameLogicProps {
   gameMode: GameMode;
   isDailyChallenge: boolean;
+  activeModifier: ActiveModifier | null;
   maxHealth: number;
   coins: number;
   elapsedTime: number;
@@ -32,7 +34,7 @@ interface UseGameLogicProps {
   setIsHintActive: (v: boolean) => void;
   setHintPath: (v: Point[]) => void;
   setVisitedCells: (v: Set<string>) => void;
-  setPlayerTrail: (v: any[]) => void;
+  setPlayerTrail: (v: TrailPoint[]) => void;
   setPlayerHealth: (v: number) => void;
   setIsDoorOpen: (v: boolean) => void;
   setHasKey: (v: boolean) => void;
@@ -42,12 +44,13 @@ interface UseGameLogicProps {
   setIsDailyChallenge: (v: boolean) => void;
   setActiveModifier: (v: ActiveModifier | null) => void;
   setGameMode: (v: GameMode) => void;
+  setUnlockedGameModes: (fn: (prev: GameMode[]) => GameMode[]) => void;
   setUnlockedAchievements: (fn: (prev: string[]) => string[]) => void;
   addEntry: (time: number, moves: number, score: number) => void;
 }
 
 export const useGameLogic = ({
-  gameMode, isDailyChallenge, maxHealth, coins, elapsedTime, moves,
+  gameMode, isDailyChallenge, activeModifier, maxHealth, coins, elapsedTime, moves,
   gameState, playerHealth, currentLevel, playerPos, exitPos, maze,
   unlockedAchievements, isHintActive,
   setMaze, setExitPos, setPlayerPos, setPuzzleState, setBreakableWallsHealth,
@@ -55,10 +58,10 @@ export const useGameLogic = ({
   setIsHintActive, setHintPath, setVisitedCells, setPlayerTrail,
   setPlayerHealth, setIsDoorOpen, setHasKey, setTimeLimit, setActivePowerups,
   setCoins, setIsDailyChallenge, setActiveModifier, setGameMode,
-  setUnlockedAchievements, addEntry,
+  setUnlockedGameModes, setUnlockedAchievements, addEntry,
 }: UseGameLogicProps) => {
   const startLevel = useCallback(
-    (levelIdx: number, isNewGame = false) => {
+    (levelIdx: number, isNewGame = false, modifierOverride?: ActiveModifier | null) => {
       const config = GAME_MODES[gameMode];
       const width = config.baseSize + Math.floor(levelIdx / 2) * 2;
       const height = config.baseSize + Math.floor(levelIdx / 2) * 2;
@@ -67,6 +70,24 @@ export const useGameLogic = ({
         : undefined;
 
       const mazeData = generateMaze(width, height, seed, levelIdx, gameMode);
+
+      // Post-process: replace ~15% of interior walls with ILLUSIONARY_WALL
+      const effectiveModifier = modifierOverride !== undefined ? modifierOverride : activeModifier;
+      if (effectiveModifier?.id === 'ILLUSIONARY_WALLS') {
+        const wallCells: Point[] = [];
+        for (let y = 1; y < mazeData.maze.length - 1; y++) {
+          for (let x = 1; x < mazeData.maze[0].length - 1; x++) {
+            if (mazeData.maze[y][x] === WALL) wallCells.push({ x, y });
+          }
+        }
+        const count = Math.floor(wallCells.length * 0.15);
+        let rndSeed = seed ?? Date.now();
+        for (let i = 0; i < count; i++) {
+          const idx = Math.floor(seededRandom(rndSeed++) * wallCells.length);
+          mazeData.maze[wallCells[idx].y][wallCells[idx].x] = ILLUSIONARY_WALL;
+        }
+      }
+
       setMaze(mazeData.maze);
       setExitPos(mazeData.exitPos);
       setPlayerPos(mazeData.playerPos);
@@ -92,13 +113,13 @@ export const useGameLogic = ({
       }
 
       if (isNewGame) {
-        setActivePowerups({ shield: false, speed: 0, map: 0 });
+        setActivePowerups({ shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 });
       }
 
       audioManager.playSound(440, 'sine', 0.2);
     },
     [
-      gameMode, isDailyChallenge, maxHealth,
+      gameMode, isDailyChallenge, activeModifier, maxHealth,
       setMaze, setExitPos, setPlayerPos, setPuzzleState, setBreakableWallsHealth,
       setCurrentLevel, setGameState, setMoves, setElapsedTime, setIsPaused,
       setIsHintActive, setHintPath, setVisitedCells, setPlayerTrail,
@@ -159,33 +180,30 @@ export const useGameLogic = ({
       const today = new Date().toISOString().split('T')[0];
       if (lastDailyCompleted === today) return;
       setIsDailyChallenge(true);
-      const daySeed = parseInt(today.replace(/-/g, ''));
-      const modifier = DAILY_MODIFIERS[daySeed % DAILY_MODIFIERS.length];
+      const modifier = DAILY_MODIFIERS[getDailyModifierIndex(DAILY_MODIFIERS.length)];
       setActiveModifier(modifier);
+      setUnlockedGameModes((prev) => prev.includes('hard') ? prev : [...prev, 'hard']);
       setGameMode('hard');
-      startLevel(0);
+      startLevel(0, false, modifier);
     },
-    [setIsDailyChallenge, setActiveModifier, setGameMode, startLevel]
+    [setIsDailyChallenge, setActiveModifier, setUnlockedGameModes, setGameMode, startLevel]
   );
 
   const checkAchievements = useCallback(() => {
     ACHIEVEMENTS.forEach((achievement) => {
       if (unlockedAchievements.includes(achievement.id)) return;
       let unlocked = false;
-      if (achievement.id === 'first_steps' && moves >= 1) unlocked = true;
-      if (achievement.id === 'coin_collector' && coins >= 100) unlocked = true;
-      if (achievement.id === 'speed_demon' && elapsedTime < 30 && gameState === 'won') unlocked = true;
-      if (achievement.id === 'survivor' && playerHealth === 1 && gameState === 'won') unlocked = true;
-      if (achievement.id === 'maze_master' && currentLevel >= 5) unlocked = true;
-      if (achievement.id === 'rich' && coins >= 1000) unlocked = true;
+      if (achievement.id === 'speedrunner' && elapsedTime < 15 && gameState === 'won') unlocked = true;
+      if (achievement.id === 'rich' && coins >= 500) unlocked = true;
+      if (achievement.id === 'veteran' && currentLevel >= 9) unlocked = true;
       if (unlocked) {
         setUnlockedAchievements((prev) => [...prev, achievement.id]);
         audioManager.playSound(1500, 'sine', 0.5, 0.2);
       }
     });
   }, [
-    unlockedAchievements, moves, coins, elapsedTime, gameState,
-    playerHealth, currentLevel, setUnlockedAchievements,
+    unlockedAchievements, coins, elapsedTime, gameState,
+    currentLevel, setUnlockedAchievements,
   ]);
 
   return { startLevel, nextLevel, restartGame, revive, useHint, watchAd, startDailyChallenge, checkAchievements };

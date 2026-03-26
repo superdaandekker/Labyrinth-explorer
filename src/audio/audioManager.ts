@@ -11,7 +11,6 @@ class AudioManager {
   private proximityAnimId: number | null = null;
   private proximityOsc: OscillatorNode | null = null;
   private proximityGain: GainNode | null = null;
-  private proximityCtx: AudioContext | null = null;
 
   private getCtx(): AudioContext {
     if (!this.ctx || this.ctx.state === 'closed') {
@@ -74,8 +73,7 @@ class AudioManager {
     exitPos: { x: number; y: number }
   ): void {
     this.stopProximityAudio();
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    this.proximityCtx = ctx;
+    const ctx = this.getCtx();
     const masterGain = ctx.createGain();
     const panner = ctx.createPanner();
     masterGain.connect(ctx.destination);
@@ -108,7 +106,6 @@ class AudioManager {
   stopProximityAudio(): void {
     if (this.proximityAnimId !== null) { cancelAnimationFrame(this.proximityAnimId); this.proximityAnimId = null; }
     if (this.proximityOsc) { try { this.proximityOsc.stop(); } catch (_) {} this.proximityOsc = null; }
-    if (this.proximityCtx) { try { this.proximityCtx.close(); } catch (_) {} this.proximityCtx = null; }
     this.proximityGain = null;
   }
 

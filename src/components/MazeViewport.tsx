@@ -1,0 +1,291 @@
+import React from 'react';
+import { motion, AnimatePresence, PanInfo } from 'motion/react';
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X } from 'lucide-react';
+import { ThemeType, Point, PowerupState, JoystickState, TrailPoint } from '../types';
+import { THEMES, VIEWPORT_SIZE } from '../constants';
+import MazeCell from './MazeCell';
+
+interface MazeViewportProps {
+  theme: ThemeType;
+  activePowerups: PowerupState;
+  currentLevel: number;
+  dynamicCellSize: number;
+  playerPos: Point;
+  maze: number[][];
+  puzzleState: Set<string>;
+  breakableWallsHealth: Record<string, number>;
+  isDoorOpen: boolean;
+  visitedCells: Set<string>;
+  isHintActive: boolean;
+  hintPath: Point[];
+  exitPos: Point;
+  playerTrail: TrailPoint[];
+  joystick: JoystickState;
+  setJoystick: (joystick: JoystickState) => void;
+  movePlayer: (dx: number, dy: number) => void;
+  controlScheme: 'joystick' | 'swipe';
+  damageFlash: boolean;
+  isBumping: boolean;
+  isDashing?: boolean;
+  moveDirection?: 'up' | 'down' | 'left' | 'right';
+  jumpProActive: boolean;
+  executeJumpPro: (dx: number, dy: number) => void;
+  cancelJumpPro: () => void;
+}
+
+const MazeViewport: React.FC<MazeViewportProps> = ({
+  theme, activePowerups, currentLevel, dynamicCellSize, playerPos,
+  maze, puzzleState, breakableWallsHealth, isDoorOpen, visitedCells,
+  isHintActive, hintPath, exitPos, playerTrail,
+  joystick, setJoystick, movePlayer, controlScheme,
+  damageFlash, isBumping, isDashing = false, moveDirection = 'right',
+  jumpProActive, executeJumpPro, cancelJumpPro,
+}) => {
+  const handlePanStart = (_e: PointerEvent, info: PanInfo) => {
+    if (controlScheme !== 'joystick') return;
+    setJoystick({ active: true, x: info.point.x, y: info.point.y, offsetX: 0, offsetY: 0 });
+  };
+
+  const handlePan = (_e: PointerEvent, info: PanInfo) => {
+    if (controlScheme === 'joystick' && joystick?.active) {
+      const dx = info.point.x - joystick.x;
+      const dy = info.point.y - joystick.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = 40;
+      const limitedDx = dist > maxDist ? (dx / dist) * maxDist : dx;
+      const limitedDy = dist > maxDist ? (dy / dist) * maxDist : dy;
+      setJoystick({ ...joystick, offsetX: limitedDx, offsetY: limitedDy });
+      if (dist > 20) {
+        if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
+        else movePlayer(0, dy > 0 ? 1 : -1);
+      }
+    } else if (controlScheme === 'swipe') {
+      const threshold = 30;
+      if (Math.abs(info.offset.x) > threshold || Math.abs(info.offset.y) > threshold) {
+        if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) movePlayer(info.offset.x > 0 ? 1 : -1, 0);
+        else movePlayer(0, info.offset.y > 0 ? 1 : -1);
+      }
+    }
+  };
+
+  const handlePanEnd = () => setJoystick(null);
+
+  return (
+    <motion.div
+      onPanStart={handlePanStart}
+      onPan={handlePan}
+      onPanEnd={handlePanEnd}
+      animate={damageFlash
+        ? { x: [-6, 6, -6, 6, 0], y: [-3, 3, -3, 3, 0], scale: [1, 1.03, 1] }
+        : isBumping ? { x: [-2, 2, -2, 2, 0], scale: 1.01 } : { scale: 1 }}
+      transition={damageFlash ? { duration: 0.2 } : { duration: 0.1 }}
+      className={`relative p-2 ${THEMES[theme].pathColor} border ${THEMES[theme].borderClass} rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden touch-none`}
+      style={{ width: VIEWPORT_SIZE * dynamicCellSize + 16, height: VIEWPORT_SIZE * dynamicCellSize + 16 }}
+    >
+      <motion.div
+        className="absolute inset-0 opacity-10 pointer-events-none"
+        animate={{ backgroundPosition: `${-playerPos.x * 5}px ${-playerPos.y * 5}px` }}
+        style={{
+          backgroundImage: `radial-gradient(circle at 2px 2px, ${THEMES[theme].pathGlow} 1px, transparent 0)`,
+          backgroundSize: '20px 20px',
+        }}
+      />
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentLevel}
+          initial={{ opacity: 0, filter: 'brightness(2)' }}
+          animate={{
+            opacity: 1, filter: 'brightness(1)',
+            x: (4 - playerPos.x) * dynamicCellSize,
+            y: (4 - playerPos.y) * dynamicCellSize,
+            scale: joystick?.active ? 0.95 : 1
+          }}
+          exit={{ opacity: 0, filter: 'brightness(0)' }}
+          transition={{
+            opacity: { duration: 0.5 },
+            x: { type: 'spring', stiffness: 300, damping: 30 },
+            y: { type: 'spring', stiffness: 300, damping: 30 },
+            scale: { duration: 0.3 }
+          }}
+          className="absolute"
+        >
+          {maze.map((row, y) => (
+            <div key={y} className="flex">
+              {row.map((cell, x) => (
+                <MazeCell
+                  key={`${x}-${y}`} x={x} y={y} cell={cell} theme={theme}
+                  dynamicCellSize={dynamicCellSize} puzzleState={puzzleState}
+                  breakableWallsHealth={breakableWallsHealth} isDoorOpen={isDoorOpen}
+                  visitedCells={visitedCells}
+                />
+              ))}
+            </div>
+          ))}
+
+          <AnimatePresence>
+            {isHintActive && hintPath.map((p, i) => (
+              <motion.div
+                key={`hint-${i}-${p.x}-${p.y}`}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 0.6, scale: 1 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="absolute rounded-full z-30"
+                style={{
+                  width: 8, height: 8,
+                  left: p.x * dynamicCellSize + (dynamicCellSize - 8) / 2,
+                  top: p.y * dynamicCellSize + (dynamicCellSize - 8) / 2,
+                  backgroundColor: THEMES[theme].playerColor,
+                  boxShadow: `0 0 10px ${THEMES[theme].playerColor}`
+                }}
+              />
+            ))}
+          </AnimatePresence>
+
+          {/* Exit */}
+          <div
+            className="absolute border rounded-full flex items-center justify-center overflow-hidden"
+            style={{
+              width: dynamicCellSize - 6, height: dynamicCellSize - 6,
+              left: exitPos.x * dynamicCellSize + 3, top: exitPos.y * dynamicCellSize + 3,
+              backgroundColor: THEMES[theme].exitColor,
+              borderColor: THEMES[theme].exitColor,
+              opacity: isHintActive ? 1 : 0.25,
+              boxShadow: isHintActive
+                ? `0 0 30px ${THEMES[theme].exitColor}, 0 0 10px ${THEMES[theme].exitColor}`
+                : `0 0 8px ${THEMES[theme].exitColor}`,
+              zIndex: isHintActive ? 60 : 10
+            }}
+          >
+            <div className={`w-2 h-2 rounded-full animate-pulse ${THEMES[theme].exitCoreColor}`} />
+          </div>
+
+          {/* Player trail */}
+          <AnimatePresence>
+            {playerTrail.map((point, index) => (
+              <motion.div
+                key={point.id}
+                initial={{ opacity: 0.25, scale: 0.7 }}
+                animate={{ opacity: 0, scale: 0.3 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6 }}
+                className={`absolute rounded-full z-20 ${THEMES[theme].trailColor}`}
+                style={{
+                  width: dynamicCellSize - 10, height: dynamicCellSize - 10,
+                  left: point.x * dynamicCellSize + 5, top: point.y * dynamicCellSize + 5,
+                  opacity: (5 - index) / 18
+                }}
+              />
+            ))}
+          </AnimatePresence>
+
+          {/* Player */}
+          <motion.div
+            className={`absolute rounded-full z-40 ${THEMES[theme].playerColor}`}
+            animate={{
+              left: playerPos.x * dynamicCellSize + 3,
+              top: playerPos.y * dynamicCellSize + 3,
+              scale: isBumping ? [1, 1.3, 0.9, 1] : isDashing ? [1, 1.4, 0.85, 1] : 1,
+              filter: isDashing ? ['brightness(1)', 'brightness(2)', 'brightness(1)'] : 'brightness(1)',
+            }}
+            transition={{
+              left: { type: 'spring', stiffness: 450, damping: 28 },
+              top: { type: 'spring', stiffness: 450, damping: 28 },
+              scale: { duration: 0.15 }
+            }}
+            style={{
+              width: dynamicCellSize - 6, height: dynamicCellSize - 6,
+              boxShadow: activePowerups.shield
+                ? '0 0 30px #60a5fa, 0 0 12px #60a5fa, inset 0 0 8px rgba(255,255,255,0.3)'
+                : `0 0 24px ${THEMES[theme].glowColor}, inset 0 0 8px rgba(255,255,255,0.2)`
+            }}
+          >
+            <motion.div
+              className="absolute inset-[3px] rounded-full bg-white/30"
+              animate={{ opacity: isDashing ? [0.5, 1, 0.5] : [0.3, 0.6, 0.3] }}
+              transition={{ repeat: Infinity, duration: isDashing ? 0.4 : 1.8, ease: 'easeInOut' }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <motion.span
+                key={moveDirection}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: isDashing ? 0.9 : 0.5, scale: 1 }}
+                transition={{ duration: 0.15 }}
+                className="text-white font-black leading-none select-none"
+                style={{ fontSize: Math.max(8, dynamicCellSize * 0.28) }}
+              >
+                {moveDirection === 'right' ? '›' : moveDirection === 'left' ? '‹' : moveDirection === 'up' ? '˄' : '˅'}
+              </motion.span>
+            </div>
+            <motion.div
+              className="absolute -inset-1 rounded-full border border-white/20"
+              animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}
+              transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
+            />
+            {activePowerups.shield && (
+              <motion.div
+                animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0.7, 0.4] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+                className="absolute -inset-2 border-2 border-blue-400 rounded-full blur-[2px]"
+              />
+            )}
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {joystick && joystick.active && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            className="absolute z-50 pointer-events-none"
+            style={{ left: joystick.x - 40, top: joystick.y - 40, width: 80, height: 80 }}
+          >
+            <div className="absolute inset-0 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm" />
+            <motion.div
+              className="absolute w-10 h-10 bg-white/30 rounded-full border border-white/40 shadow-xl"
+              style={{ left: 20 + joystick.offsetX, top: 20 + joystick.offsetY }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Jump Pro direction picker overlay */}
+      <AnimatePresence>
+        {jumpProActive && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-2xl"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-rose-400 font-black mb-1">Choose Direction</span>
+              <button onClick={() => executeJumpPro(0, -1)} className="p-3 bg-rose-500/20 border border-rose-400/50 rounded-xl text-rose-300 hover:bg-rose-500/40 active:scale-95 transition-all">
+                <ArrowUp size={22} />
+              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => executeJumpPro(-1, 0)} className="p-3 bg-rose-500/20 border border-rose-400/50 rounded-xl text-rose-300 hover:bg-rose-500/40 active:scale-95 transition-all">
+                  <ArrowLeft size={22} />
+                </button>
+                <button onClick={cancelJumpPro} className="p-2 bg-zinc-800 border border-zinc-700 rounded-xl text-zinc-500 hover:text-white active:scale-95 transition-all">
+                  <X size={16} />
+                </button>
+                <button onClick={() => executeJumpPro(1, 0)} className="p-3 bg-rose-500/20 border border-rose-400/50 rounded-xl text-rose-300 hover:bg-rose-500/40 active:scale-95 transition-all">
+                  <ArrowRight size={22} />
+                </button>
+              </div>
+              <button onClick={() => executeJumpPro(0, 1)} className="p-3 bg-rose-500/20 border border-rose-400/50 rounded-xl text-rose-300 hover:bg-rose-500/40 active:scale-95 transition-all">
+                <ArrowDown size={22} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+export default MazeViewport;

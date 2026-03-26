@@ -10,7 +10,7 @@ interface MazeCellProps {
   cell: number;
   theme: ThemeType;
   dynamicCellSize: number;
-  puzzleState: any;
+  puzzleState: Set<string>;
   breakableWallsHealth: Record<string, number>;
   isDoorOpen: boolean;
   visitedCells: Set<string>;
@@ -20,7 +20,7 @@ const MazeCell = memo(({
   x, y, cell, theme, dynamicCellSize, puzzleState,
   breakableWallsHealth, isDoorOpen, visitedCells
 }: MazeCellProps) => {
-  const isPressurePlateActive = puzzleState.activeElements?.has(`${x},${y}`) ?? puzzleState.has?.(`${x},${y}`) ?? false;
+  const isPressurePlateActive = puzzleState.has(`${x},${y}`);
   const isVisited = visitedCells.has(`${x},${y}`);
 
   return (

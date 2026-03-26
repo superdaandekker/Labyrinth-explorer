@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Play, Eye, Zap, Trophy, RotateCcw, Info, ArrowUp, Coins } from 'lucide-react';
 import { GameMode, ThemeType } from '../types';
 import { GAME_MODES, THEMES, DAILY_MODIFIERS, containerVariants, itemVariants } from '../constants';
+import { getDailyModifierIndex } from '../utils/dailyChallenge';
 
 interface StartMenuProps {
   gameMode: GameMode;
@@ -173,7 +174,7 @@ const StartMenu: React.FC<StartMenuProps> = ({
             </div>
             {lastDailyCompleted !== new Date().toISOString().split('T')[0] && (
               <div className="text-[7px] uppercase tracking-widest opacity-60">
-                Today: {DAILY_MODIFIERS[parseInt(new Date().toISOString().split('T')[0].replace(/-/g, '')) % DAILY_MODIFIERS.length].name}
+                Today: {DAILY_MODIFIERS[getDailyModifierIndex(DAILY_MODIFIERS.length)].name}
               </div>
             )}
             {lastDailyCompleted === new Date().toISOString().split('T')[0] && (

@@ -63,6 +63,21 @@ export interface PowerupState {
   shield: boolean;
   speed: number;
   map: number;
+  jump: number;
+  jumpPro: number;
+  ghost: number;
+  magnet: number;
+  freeze: number;
+  teleport: number;
+}
+
+export type StreakRewardType = 'coins' | 'powerup' | 'milestone';
+
+export interface StreakReward {
+  type: StreakRewardType;
+  powerupId?: keyof PowerupState;
+  amount: number;
+  label?: string;
 }
 
 export interface ActiveModifier {
@@ -100,8 +115,9 @@ export interface PowerupConfig {
   bgColor: string;
   borderColor: string;
   price: number;
-  cellType: number;
+  cellType?: number;
   duration?: number;
+  unlockedLevel?: number;
 }
 
 export interface TutorialConfig {

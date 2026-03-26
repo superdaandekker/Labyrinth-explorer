@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  X, ShoppingBag, Coins, Zap, Shield, Map, Palette, Eye, Sparkles 
+import {
+  X, ShoppingBag, Coins, Zap, Shield, Map, Palette, Eye, Sparkles, ChevronsUp, Crosshair,
+  Ghost, Magnet, Snowflake, Navigation, Lock
 } from 'lucide-react';
 import { THEMES, POWERUPS } from '../../constants';
 
@@ -17,6 +18,7 @@ interface ShopModalProps {
   buyTheme: (themeId: string, price: number) => void;
   buyPowerup: (powerupId: string, price: number) => void;
   buyCoins: (amount: number, price: number) => void;
+  currentLevel: number;
 }
 
 const ShopModal: React.FC<ShopModalProps> = ({
@@ -30,7 +32,8 @@ const ShopModal: React.FC<ShopModalProps> = ({
   unlockedThemes,
   buyTheme,
   buyPowerup,
-  buyCoins
+  buyCoins,
+  currentLevel,
 }) => {
   const sortedThemes = Object.entries(THEMES)
     .filter(([id]) => id !== 'default')
@@ -125,30 +128,47 @@ const ShopModal: React.FC<ShopModalProps> = ({
                 <div className="space-y-4">
                   <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-black">Power-Ups</div>
                   <div className="grid gap-3">
-                    {sortedPowerups.map(([id, powerup]) => (
-                      <button
-                        key={id}
-                        onClick={() => buyPowerup(id, powerup.price)}
-                        disabled={coins < powerup.price}
-                        className="flex items-center justify-between p-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl hover:bg-zinc-800/80 transition-all group disabled:opacity-50"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-xl bg-zinc-800 text-white group-hover:scale-110 transition-transform`}>
-                            {id === 'shield' && <Shield size={20} className="text-blue-400" />}
-                            {id === 'speed' && <Zap size={20} className="text-yellow-400" />}
-                            {id === 'map' && <Map size={20} className="text-emerald-400" />}
+                    {sortedPowerups.map(([id, powerup]) => {
+                      const isLocked = powerup.unlockedLevel !== undefined && currentLevel < powerup.unlockedLevel;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => !isLocked && buyPowerup(id, powerup.price)}
+                          disabled={isLocked || coins < powerup.price}
+                          className="flex items-center justify-between p-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl hover:bg-zinc-800/80 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 rounded-xl bg-zinc-800 text-white group-hover:scale-110 transition-transform">
+                              {id === 'shield' && <Shield size={20} className="text-blue-400" />}
+                              {id === 'speed' && <Zap size={20} className="text-yellow-400" />}
+                              {id === 'map' && <Map size={20} className="text-emerald-400" />}
+                              {id === 'jump' && <ChevronsUp size={20} className="text-violet-400" />}
+                              {id === 'jumpPro' && <Crosshair size={20} className="text-rose-400" />}
+                              {id === 'ghost' && <Ghost size={20} className="text-slate-300" />}
+                              {id === 'magnet' && <Magnet size={20} className="text-amber-300" />}
+                              {id === 'freeze' && <Snowflake size={20} className="text-cyan-300" />}
+                              {id === 'teleport' && <Navigation size={20} className="text-fuchsia-400" />}
+                            </div>
+                            <div className="text-left">
+                              <div className="font-bold text-white">{powerup.name}</div>
+                              <div className="text-[10px] text-zinc-500 uppercase tracking-widest">
+                                {isLocked ? `Unlocks at level ${powerup.unlockedLevel}` : powerup.description}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-left">
-                            <div className="font-bold text-white">{powerup.name}</div>
-                            <div className="text-[10px] text-zinc-500 uppercase tracking-widest">{powerup.description}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-lg text-amber-500 font-mono font-bold text-sm">
-                          <Coins size={14} />
-                          {powerup.price}
-                        </div>
-                      </button>
-                    ))}
+                          {isLocked ? (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 rounded-lg text-zinc-500">
+                              <Lock size={14} />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-lg text-amber-500 font-mono font-bold text-sm">
+                              <Coins size={14} />
+                              {powerup.price}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

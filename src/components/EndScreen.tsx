@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Skull, RotateCcw, Trophy, ChevronRight, Zap } from 'lucide-react';
+import { formatTime } from '../utils/formatTime';
 
 interface EndScreenProps {
   gameState: 'won' | 'complete' | 'gameover';
@@ -34,12 +35,6 @@ const EndScreen: React.FC<EndScreenProps> = ({
   gameState, playerHealth, currentLevel, elapsedTime, moves, coins,
   score, rank, revive, startLevel, restartGame, nextLevel
 }) => {
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
   const isWin = gameState === 'won' || gameState === 'complete';
 
   return (

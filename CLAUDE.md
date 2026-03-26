@@ -1,27 +1,46 @@
-# Claude Instructions — Labyrinth Explorer
+# Labyrinth Explorer — Claude regels
 
-## Verplicht gedrag
-- Lees altijd eerst README.md
-- Zoek altijd eerst bestaande code
-- Maak nooit duplicate logica
-- Werk in kleine stappen
-- Wacht altijd op "GO"
+## Beschermde systemen (nooit aanpassen tenzij expliciet gevraagd)
+spelerbeweging · maze generation · collision · save/load · audio · achievements · coin spawning
 
-## Beschermde systemen
-Niet aanpassen:
-- spelerbeweging
-- maze generation
-- collision
-- save/load
-- audio
-- achievements
+## Bestandsmap (lees alleen wat de taak raakt)
+| Systeem | Bestand(en) |
+|---|---|
+| App / routing | `App.tsx` |
+| Types / constants | `types.ts` · `constants.ts` |
+| Spelerbeweging / game loop | `hooks/useGameLogic.ts` |
+| Maze rendering | `components/MazeViewport.tsx` · `components/MazeCell.tsx` |
+| HUD / header | `components/GameHeader.tsx` |
+| Controls | `components/GameControls.tsx` |
+| Game wrapper | `components/GameUI.tsx` |
+| Start / End scherm | `components/StartMenu.tsx` · `components/EndScreen.tsx` |
+| TopBar | `components/TopBar.tsx` |
+| Modals | `components/Modals/` (lees alleen de relevante modal) |
+| Save / load | `hooks/useSaveLoad.ts` |
+| Audio | `audio/audioManager.ts` · `hooks/useAudio.ts` |
+| Shop | `hooks/useShop.ts` |
+| Score / leaderboard | `hooks/useScore.ts` · `hooks/useLeaderboard.ts` |
+| Maze generatie | `utils/mazeGenerator.ts` |
+| Animaties | `hooks/usePlayerAnim.ts` |
+| UI state | `hooks/useUIState.ts` |
+| Tijd / daily | `utils/formatTime.ts` · `utils/dailyChallenge.ts` |
 
-## Na elke wijziging
-- Update README.md
-- Controleer eigen code
-- Fix fouten direct
+## Vóór GO
+1. Lees **alleen** de bestanden uit de bestandsmap die de taak raakt (max 2-3) — geen README tenzij expliciet gevraagd
+2. Zoek bestaande logica → hergebruik, of leg uit waarom niet
+3. Plan (max 5 bullets): welke files, welke impact
+4. **Wacht op GO — geen code voor GO**
 
-## Kwaliteit
-- Geen onnodige refactors
-- Geen extra features
-- Houd alles simpel en logisch
+## Na GO
+5. Implementeer — alleen noodzakelijke bestanden, geen scope-uitbreiding
+6. Self-check: Syntax · TypeScript · Imports · Logica · Side effects — elk ✅/❌ + fix
+7. Regressie-check: beschermde systemen ✅/❌
+8. Fix issues direct
+9. Update README.md alleen bij structurele wijzigingen
+
+## Output structuur
+`1. Analyse · 2. Plan · 3. Wijzigingen · 4. Self-check · 5. Regressie · 6. Fixes · 7. Risico's`
+
+## Regels
+- Geen duplicate logica · geen extra features · geen onnodige refactors
+- Minimale wijzigingen · simpel en logisch

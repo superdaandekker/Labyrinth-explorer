@@ -1,5 +1,5 @@
 import { Point, GameMode } from '../types';
-import { WALL, PATH, COIN, BREAKABLE_WALL, DOOR, LEVER, SPIKES, POISON_GAS, KEY, KEY_DOOR, GAME_MODES } from '../constants';
+import { WALL, PATH, COIN, BREAKABLE_WALL, DOOR, LEVER, PRESSURE_PLATE, SPIKES, POISON_GAS, KEY, KEY_DOOR, GAME_MODES } from '../constants';
 
 export const seededRandom = (seed: number) => {
   const x = Math.sin(seed++) * 10000;
@@ -27,7 +27,9 @@ export const findPath = (start: Point, end: Point, currentMaze: number[][]): Poi
       if (
         n.x >= 0 && n.x < currentMaze[0].length &&
         n.y >= 0 && n.y < currentMaze.length &&
-        (currentMaze[n.y][n.x] === PATH || currentMaze[n.y][n.x] === COIN) &&
+        (currentMaze[n.y][n.x] === PATH || currentMaze[n.y][n.x] === COIN ||
+          currentMaze[n.y][n.x] === KEY_DOOR || currentMaze[n.y][n.x] === DOOR ||
+          currentMaze[n.y][n.x] === LEVER || currentMaze[n.y][n.x] === PRESSURE_PLATE) &&
         !visited.has(`${n.x},${n.y}`)
       ) {
         visited.add(`${n.x},${n.y}`);
@@ -57,7 +59,8 @@ export const generateMaze = (
   gameMode: GameMode = 'normal'
 ): MazeData => {
   const newMaze = Array(height).fill(null).map(() => Array(width).fill(WALL));
-  let currentSeed = seed || Math.random();
+  let currentSeed = seed !== undefined ? seed : Math.random();
+  const rnd = () => seed !== undefined ? seededRandom(currentSeed++) : Math.random();
   const config = GAME_MODES[gameMode];
   const branchingFactor = config.branchingFactor;
 
@@ -112,26 +115,26 @@ export const generateMaze = (
   const exitPos = { x: ex, y: ey };
   const playerPos = { x: 1, y: 1 };
 
-  // Coins (level 10+)
-  if (levelIdx >= 10) {
-    for (let i = 0; i < (width * height) / 40; i++) {
-      const rx = Math.floor(Math.random() * (width - 2)) + 1;
-      const ry = Math.floor(Math.random() * (height - 2)) + 1;
+  // Coins (level 2+)
+  if (levelIdx >= 2) {
+    for (let i = 0; i < (width * height) / 70; i++) {
+      const rx = Math.floor(rnd() * (width - 2)) + 1;
+      const ry = Math.floor(rnd() * (height - 2)) + 1;
       if (newMaze[ry][rx] === PATH && (rx !== 1 || ry !== 1) && (rx !== ex || ry !== ey))
         newMaze[ry][rx] = COIN;
     }
   }
 
-  // Breakable walls (level 15+)
+  // Breakable walls (level 4+)
   const breakableWallsHealth: Record<string, number> = {};
-  if (levelIdx >= 15) {
+  if (levelIdx >= 4) {
     const numSecrets = Math.floor((width * height) / 80) + 1;
     for (let i = 0; i < numSecrets; i++) {
       let attempts = 0;
       while (attempts < 50) {
         attempts++;
-        const rx = Math.floor(Math.random() * (width - 4)) + 2;
-        const ry = Math.floor(Math.random() * (height - 4)) + 2;
+        const rx = Math.floor(rnd() * (width - 4)) + 2;
+        const ry = Math.floor(rnd() * (height - 4)) + 2;
         if (newMaze[ry][rx] === WALL) {
           const ns = [{ x: rx+1, y: ry }, { x: rx-1, y: ry }, { x: rx, y: ry+1 }, { x: rx, y: ry-1 }];
           const pathNs = ns.filter(n => newMaze[n.y][n.x] === PATH);
@@ -142,7 +145,7 @@ export const generateMaze = (
             const roomX = rx + dir.x;
             const roomY = ry + dir.y;
             if (roomX > 0 && roomX < width - 1 && roomY > 0 && roomY < height - 1) {
-              newMaze[roomY][roomX] = Math.random() > 0.3 ? COIN : PATH;
+              newMaze[roomY][roomX] = rnd() > 0.6 ? COIN : PATH;
               break;
             }
           }
@@ -151,20 +154,20 @@ export const generateMaze = (
     }
   }
 
-  // Puzzle: lever + door (level 20+)
+  // Puzzle: lever + door (level 5+)
   let puzzleState = {
     activeElements: new Set<string>(),
     connections: {} as Record<string, string[]>
   };
-  if (levelIdx >= 20) {
+  if (levelIdx >= 5) {
     const path = findPath(playerPos, exitPos, newMaze);
     if (path.length > 10) {
       const doorIdx = Math.floor(path.length * 0.6);
       const doorPos = path[doorIdx];
       let leverPos: Point | null = null;
       for (let i = 0; i < 100; i++) {
-        const lx = Math.floor(Math.random() * (width - 2)) + 1;
-        const ly = Math.floor(Math.random() * (height - 2)) + 1;
+        const lx = Math.floor(rnd() * (width - 2)) + 1;
+        const ly = Math.floor(rnd() * (height - 2)) + 1;
         if (newMaze[ly][lx] === PATH && (lx !== 1 || ly !== 1) && (lx !== ex || ly !== ey)) {
           if (!path.some(p => p.x === lx && p.y === ly)) {
             leverPos = { x: lx, y: ly };
@@ -183,18 +186,18 @@ export const generateMaze = (
   // Spikes (level 5+)
   if (levelIdx >= 5) {
     for (let i = 0; i < (width * height) / 30; i++) {
-      const rx = Math.floor(Math.random() * (width - 2)) + 1;
-      const ry = Math.floor(Math.random() * (height - 2)) + 1;
+      const rx = Math.floor(rnd() * (width - 2)) + 1;
+      const ry = Math.floor(rnd() * (height - 2)) + 1;
       if (newMaze[ry][rx] === PATH && (rx !== 1 || ry !== 1) && (rx !== ex || ry !== ey))
         newMaze[ry][rx] = SPIKES;
     }
   }
 
-  // Poison gas (level 30+)
-  if (levelIdx >= 30) {
+  // Poison gas (level 6+)
+  if (levelIdx >= 6) {
     for (let i = 0; i < (width * height) / 40; i++) {
-      const rx = Math.floor(Math.random() * (width - 2)) + 1;
-      const ry = Math.floor(Math.random() * (height - 2)) + 1;
+      const rx = Math.floor(rnd() * (width - 2)) + 1;
+      const ry = Math.floor(rnd() * (height - 2)) + 1;
       if (newMaze[ry][rx] === PATH && (rx !== 1 || ry !== 1) && (rx !== ex || ry !== ey))
         newMaze[ry][rx] = POISON_GAS;
     }
@@ -208,8 +211,8 @@ export const generateMaze = (
       const keyDoorPos = mainPath[doorIdx];
       let keyPos: Point | null = null;
       for (let attempt = 0; attempt < 150; attempt++) {
-        const kx = Math.floor(Math.random() * (width - 2)) + 1;
-        const ky = Math.floor(Math.random() * (height - 2)) + 1;
+        const kx = Math.floor(rnd() * (width - 2)) + 1;
+        const ky = Math.floor(rnd() * (height - 2)) + 1;
         if (
           newMaze[ky][kx] === PATH &&
           (kx !== 1 || ky !== 1) &&

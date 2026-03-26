@@ -53,6 +53,12 @@ export const useShop = ({
         if (powerupId === 'shield') setActivePowerups((p) => ({ ...p, shield: true }));
         if (powerupId === 'speed') setActivePowerups((p) => ({ ...p, speed: Date.now() + 30000 }));
         if (powerupId === 'map') setActivePowerups((p) => ({ ...p, map: Date.now() + 60000 }));
+        if (powerupId === 'jump') setActivePowerups((p) => ({ ...p, jump: Math.min(99, p.jump + 1) }));
+        if (powerupId === 'jumpPro') setActivePowerups((p) => ({ ...p, jumpPro: Math.min(99, p.jumpPro + 1) }));
+        if (powerupId === 'ghost') setActivePowerups((p) => ({ ...p, ghost: Math.min(99, p.ghost + 1) }));
+        if (powerupId === 'magnet') setActivePowerups((p) => ({ ...p, magnet: Date.now() + 15000 }));
+        if (powerupId === 'freeze') setActivePowerups((p) => ({ ...p, freeze: Date.now() + 10000 }));
+        if (powerupId === 'teleport') setActivePowerups((p) => ({ ...p, teleport: Math.min(99, p.teleport + 1) }));
         audioManager.playSound(1000, 'sine', 0.3);
       }
     },
@@ -61,7 +67,7 @@ export const useShop = ({
 
   const buyCoins = useCallback(
     (amount: number) => {
-      setCoins((prev) => prev + amount);
+      setCoins((prev) => Math.min(9999, prev + amount));
       audioManager.playSound(1500, 'sine', 0.4);
     },
     [setCoins]

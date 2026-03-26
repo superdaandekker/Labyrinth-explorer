@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { GameMode, ThemeType, PowerupState } from '../types';
 
 interface SaveData {
@@ -17,6 +17,9 @@ interface SaveData {
   gameState: string;
   unlockedGameModes: GameMode[];
   activePowerups: PowerupState;
+  playerHealth: number;
+  streakCount: number;
+  lastStreakTimestamp: number;
 }
 
 interface UseSaveLoadProps {
@@ -36,6 +39,9 @@ interface UseSaveLoadProps {
   setGameMode: (v: GameMode) => void;
   setTheme: (v: ThemeType) => void;
   setActivePowerups: (v: PowerupState) => void;
+  setPlayerHealth: (v: number) => void;
+  setStreakCount: (v: number) => void;
+  setLastStreakTimestamp: (v: number) => void;
   startLevel: (level: number) => void;
 }
 
@@ -56,7 +62,9 @@ const applyParsedSave = (
   setters.setUnlockedGameModes(data.unlockedGameModes || ['normal']);
   setters.setGameMode(data.gameMode || 'normal');
   setters.setTheme(data.theme || 'default');
-  setters.setActivePowerups(data.activePowerups || { shield: false, speed: 0, map: 0 });
+  setters.setActivePowerups(data.activePowerups || { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 });
+  setters.setStreakCount(data.streakCount || 0);
+  setters.setLastStreakTimestamp(data.lastStreakTimestamp || 0);
 };
 
 export const useSaveLoad = ({
@@ -64,14 +72,16 @@ export const useSaveLoad = ({
   setUnlockedThemes, setUnlockedAchievements, setCoins, setLastDailyCompleted,
   setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
   setShownTutorials, setUnlockedGameModes, setGameMode, setTheme,
-  setActivePowerups, startLevel,
+  setActivePowerups, setPlayerHealth, setStreakCount, setLastStreakTimestamp, startLevel,
 }: UseSaveLoadProps) => {
   const setters = {
     setHasSavedGame, setUnlockedThemes, setUnlockedAchievements, setCoins,
     setLastDailyCompleted, setSoundEnabled, setSfxVolume, setMusicVolume,
     setControlScheme, setShownTutorials, setUnlockedGameModes,
-    setGameMode, setTheme, setActivePowerups,
+    setGameMode, setTheme, setActivePowerups, setStreakCount, setLastStreakTimestamp,
   };
+  const settersRef = useRef(setters);
+  settersRef.current = setters;
 
   const saveProgress = useCallback(
     (
@@ -79,7 +89,8 @@ export const useSaveLoad = ({
       currentCoins: number, unlocked: ThemeType[], achievements: string[],
       daily: string | null, sfx: number, music: number,
       scheme: 'swipe' | 'joystick', tutorials: string[],
-      unlockedModes: GameMode[], powerups?: PowerupState
+      unlockedModes: GameMode[], powerups?: PowerupState, health?: number,
+      streak?: number, streakTs?: number
     ) => {
       localStorage.setItem('labyrinth_save', JSON.stringify({
         level: levelIdx, gameMode: mode, unlockedGameModes: unlockedModes,
@@ -87,7 +98,10 @@ export const useSaveLoad = ({
         unlockedAchievements: achievements, lastDailyCompleted: daily,
         soundEnabled: sound, sfxVolume: sfx, musicVolume: music,
         controlScheme: scheme, shownTutorials: tutorials,
-        activePowerups: powerups || activePowerups, timestamp: Date.now(),
+        activePowerups: powerups || activePowerups,
+        playerHealth: health ?? 3,
+        streakCount: streak ?? 0, lastStreakTimestamp: streakTs ?? 0,
+        timestamp: Date.now(),
       }));
       setHasSavedGame(true);
     },
@@ -103,8 +117,9 @@ export const useSaveLoad = ({
           s.currentLevel, s.gameMode, s.soundEnabled, s.theme, s.coins,
           s.unlockedThemes, s.unlockedAchievements, s.lastDailyCompleted,
           s.sfxVolume, s.musicVolume, s.controlScheme,
-          Array.from(s.shownTutorials as any),
-          s.unlockedGameModes, s.activePowerups
+          Array.from(s.shownTutorials as Iterable<string>),
+          s.unlockedGameModes, s.activePowerups, s.playerHealth,
+          s.streakCount, s.lastStreakTimestamp
         );
       }
     }, 120000);
@@ -114,18 +129,26 @@ export const useSaveLoad = ({
   /** Called on mount — restores settings without starting a level. */
   const loadInitialData = useCallback(() => {
     const saved = localStorage.getItem('labyrinth_save');
-    if (saved) applyParsedSave(JSON.parse(saved), setters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!saved) return;
+    try {
+      applyParsedSave(JSON.parse(saved), settersRef.current);
+    } catch {
+      settersRef.current.setHasSavedGame(false);
+    }
   }, []);
 
   /** Called when user clicks "Continue" — restores ALL state and resumes saved level. */
   const loadSavedGame = useCallback(() => {
     const saved = localStorage.getItem('labyrinth_save');
     if (!saved) return;
-    const data = JSON.parse(saved);
-    applyParsedSave(data, setters);
-    startLevel(data.level || 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    try {
+      const data = JSON.parse(saved);
+      applyParsedSave(data, settersRef.current);
+      startLevel(data.level || 0);
+      setPlayerHealth(data.playerHealth ?? 3);
+    } catch {
+      localStorage.removeItem('labyrinth_save');
+    }
   }, [startLevel]);
 
   return { saveProgress, loadInitialData, loadSavedGame };

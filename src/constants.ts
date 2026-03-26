@@ -1,5 +1,5 @@
-import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost } from 'lucide-react';
-import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier } from './types';
+import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost, ChevronsUp, Crosshair, Magnet, Snowflake, Navigation } from 'lucide-react';
+import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier, StreakReward } from './types';
 import React from 'react';
 
 // Maze cell type constants
@@ -21,6 +21,7 @@ export const POWERUP_SPEED = 13;
 export const POWERUP_MAP = 14;
 export const KEY = 15;
 export const KEY_DOOR = 16;
+export const VIEWPORT_SIZE = 9;
 
 export const DAILY_MODIFIERS: DailyModifier[] = [
   {
@@ -116,8 +117,127 @@ export const POWERUPS: Record<string, PowerupConfig> = {
     duration: 5000,
     price: 200,
     cellType: POWERUP_MAP,
-  }
+  },
+  jump: {
+    id: 'jump',
+    name: 'Jump',
+    description: 'Instantly jump 2 cells in your current direction, over any obstacle.',
+    icon: React.createElement(ChevronsUp, { size: 16 }),
+    color: 'text-violet-400',
+    bgColor: 'bg-violet-400/20',
+    borderColor: 'border-violet-400/50',
+    price: 175,
+  },
+  jumpPro: {
+    id: 'jumpPro',
+    name: 'Jump Pro',
+    description: 'Choose your direction, then jump 2 cells over any obstacle.',
+    icon: React.createElement(Crosshair, { size: 16 }),
+    color: 'text-rose-400',
+    bgColor: 'bg-rose-400/20',
+    borderColor: 'border-rose-400/50',
+    price: 200,
+  },
+  ghost: {
+    id: 'ghost',
+    name: 'Ghost',
+    description: 'Auto-triggers on your next wall: pass right through it.',
+    icon: React.createElement(Ghost, { size: 16 }),
+    color: 'text-slate-300',
+    bgColor: 'bg-slate-300/20',
+    borderColor: 'border-slate-300/50',
+    price: 250,
+    unlockedLevel: 10,
+  },
+  magnet: {
+    id: 'magnet',
+    name: 'Magnet',
+    description: 'Auto-collect all coins within 3 cells for 15 seconds.',
+    icon: React.createElement(Magnet, { size: 16 }),
+    color: 'text-amber-300',
+    bgColor: 'bg-amber-300/20',
+    borderColor: 'border-amber-300/50',
+    price: 300,
+    duration: 15000,
+    unlockedLevel: 20,
+  },
+  freeze: {
+    id: 'freeze',
+    name: 'Freeze',
+    description: 'Spikes and poison gas cannot hurt you for 10 seconds.',
+    icon: React.createElement(Snowflake, { size: 16 }),
+    color: 'text-cyan-300',
+    bgColor: 'bg-cyan-300/20',
+    borderColor: 'border-cyan-300/50',
+    price: 350,
+    duration: 10000,
+    unlockedLevel: 30,
+  },
+  teleport: {
+    id: 'teleport',
+    name: 'Teleport',
+    description: 'Jump to a random open cell closer to the exit.',
+    icon: React.createElement(Navigation, { size: 16 }),
+    color: 'text-fuchsia-400',
+    bgColor: 'bg-fuchsia-400/20',
+    borderColor: 'border-fuchsia-400/50',
+    price: 400,
+    unlockedLevel: 40,
+  },
 };
+
+export const DAILY_STREAK_REWARDS: StreakReward[] = [
+  { type: 'coins', amount: 50 },                              // Day 1
+  { type: 'coins', amount: 100 },                             // Day 2
+  { type: 'powerup', powerupId: 'jump', amount: 1 },          // Day 3
+  { type: 'coins', amount: 150 },                             // Day 4
+  { type: 'powerup', powerupId: 'shield', amount: 1 },        // Day 5
+  { type: 'powerup', powerupId: 'jumpPro', amount: 1 },       // Day 6
+  { type: 'coins', amount: 300 },                             // Day 7
+  { type: 'powerup', powerupId: 'ghost', amount: 1 },         // Day 8
+  { type: 'coins', amount: 500 },                             // Day 9
+  { type: 'milestone', amount: 0, label: 'streak_skin_1' },   // Day 10 🏆
+  { type: 'powerup', powerupId: 'magnet', amount: 1 },        // Day 11
+  { type: 'coins', amount: 300 },                             // Day 12
+  { type: 'powerup', powerupId: 'jump', amount: 2 },          // Day 13
+  { type: 'powerup', powerupId: 'freeze', amount: 1 },        // Day 14
+  { type: 'coins', amount: 500 },                             // Day 15
+  { type: 'powerup', powerupId: 'teleport', amount: 1 },      // Day 16
+  { type: 'powerup', powerupId: 'jumpPro', amount: 2 },       // Day 17
+  { type: 'coins', amount: 750 },                             // Day 18
+  { type: 'powerup', powerupId: 'ghost', amount: 2 },         // Day 19
+  { type: 'milestone', amount: 0, label: 'streak_skin_2' },   // Day 20 🏆
+  { type: 'coins', amount: 400 },                             // Day 21
+  { type: 'powerup', powerupId: 'magnet', amount: 2 },        // Day 22
+  { type: 'coins', amount: 600 },                             // Day 23
+  { type: 'powerup', powerupId: 'freeze', amount: 2 },        // Day 24
+  { type: 'coins', amount: 800 },                             // Day 25
+  { type: 'powerup', powerupId: 'teleport', amount: 2 },      // Day 26
+  { type: 'coins', amount: 500 },                             // Day 27
+  { type: 'powerup', powerupId: 'ghost', amount: 3 },         // Day 28
+  { type: 'coins', amount: 700 },                             // Day 29
+  { type: 'powerup', powerupId: 'jump', amount: 3 },          // Day 30
+  { type: 'coins', amount: 600 },                             // Day 31
+  { type: 'powerup', powerupId: 'jumpPro', amount: 3 },       // Day 32
+  { type: 'coins', amount: 900 },                             // Day 33
+  { type: 'powerup', powerupId: 'magnet', amount: 3 },        // Day 34
+  { type: 'coins', amount: 800 },                             // Day 35
+  { type: 'powerup', powerupId: 'freeze', amount: 3 },        // Day 36
+  { type: 'coins', amount: 1000 },                            // Day 37
+  { type: 'powerup', powerupId: 'teleport', amount: 3 },      // Day 38
+  { type: 'coins', amount: 900 },                             // Day 39
+  { type: 'powerup', powerupId: 'ghost', amount: 4 },         // Day 40
+  { type: 'coins', amount: 800 },                             // Day 41
+  { type: 'powerup', powerupId: 'magnet', amount: 4 },        // Day 42
+  { type: 'coins', amount: 1000 },                            // Day 43
+  { type: 'powerup', powerupId: 'freeze', amount: 4 },        // Day 44
+  { type: 'coins', amount: 900 },                             // Day 45
+  { type: 'powerup', powerupId: 'teleport', amount: 4 },      // Day 46
+  { type: 'coins', amount: 1000 },                            // Day 47
+  { type: 'powerup', powerupId: 'jump', amount: 5 },          // Day 48
+  { type: 'coins', amount: 1000 },                            // Day 49
+  { type: 'milestone', amount: 1000, label: 'streak_skin_legendary' }, // Day 50 🌟
+];
 
 export const TUTORIALS: Record<string, TutorialConfig> = {
   coins: {
