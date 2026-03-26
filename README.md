@@ -61,6 +61,10 @@ Je voortgang wordt automatisch bijgehouden zodat je later verder kunt spelen:
 ## 🗺️ Roadmap
 
 Plannen voor toekomstige updates:
+- [x] **HTML Title:** De HTML-titel is ingesteld op 'Labyrinth Explorer'.
+- [x] **Meta Tags:** SEO en Open Graph meta-tags toegevoegd aan `index.html`.
+- [x] **Package Name:** Projectnaam in `package.json` bijgewerkt naar `labyrinth-explorer`.
+- [x] **Dependency Cleanup:** Ongebruikte pakketten (`@google/genai`, `express`, `dotenv`, `tsx`) verwijderd.
 - [ ] **Online Leaderboards:** Vergelijk je tijden met spelers wereldwijd.
 - [ ] **Multiplayer Race:** Race in real-time tegen een vriend door hetzelfde doolhof.
 - [ ] **Nieuwe Hazards:** Bewegende vijanden en vallende objecten.
