@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Point, GameState, GameMode, ThemeType, PowerupState, PowerupInventory, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
-import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, ILLUSIONARY_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, DAILY_STREAK_REWARDS } from './constants';
+import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, ILLUSIONARY_WALL, HIDDEN_BUTTON, TOGGLE_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, DAILY_STREAK_REWARDS } from './constants';
 import { findPath } from './utils/mazeGenerator';
 
 import { useAudio } from './hooks/useAudio';
@@ -82,11 +82,13 @@ export default function App() {
   const [breakableWallsHealth, setBreakableWallsHealth] = useState<Record<string, number>>({});
   const [isDoorOpen, setIsDoorOpen] = useState(false);
   const [hasKey, setHasKey] = useState(false);
+  const [usedKeyThisLevel, setUsedKeyThisLevel] = useState(false);
   const [coinsCollected, setCoinsCollected] = useState(0);
 
   const playerPosRef = useRef(playerPos);
   const mazeRef = useRef(maze);
   const gameStateRef = useRef(gameState);
+  const puzzleStateRef = useRef(puzzleState);
   const lastMoveTimeRef = useRef(0);
   const autoSaveRef = useRef({
     currentLevel, gameMode, soundEnabled, theme, coins,
@@ -99,6 +101,7 @@ export default function App() {
   useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
   useEffect(() => { mazeRef.current = maze; }, [maze]);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+  useEffect(() => { puzzleStateRef.current = puzzleState; }, [puzzleState]);
   useEffect(() => { powerupInventoryRef.current = powerupInventory; }, [powerupInventory]);
   useEffect(() => { localStorage.setItem('powerupInventory', JSON.stringify(powerupInventory)); }, [powerupInventory]);
   useEffect(() => {
@@ -125,6 +128,7 @@ export default function App() {
     gameMode, isDailyChallenge, activeModifier, maxHealth, coins, elapsedTime, moves,
     gameState, playerHealth, currentLevel, playerPos, exitPos, maze,
     unlockedAchievements, isHintActive,
+    visitedCells, usedKey: usedKeyThisLevel, unlockedThemesCount: unlockedThemes.length,
     setMaze, setExitPos, setPlayerPos, setPuzzleState, setBreakableWallsHealth,
     setCurrentLevel, setGameState, setMoves, setElapsedTime, setIsPaused,
     setIsHintActive, setHintPath, setVisitedCells, setPlayerTrail,
@@ -163,6 +167,7 @@ export default function App() {
   useEffect(() => {
     if (gameState === 'playing') {
       setHasKey(false);
+      setUsedKeyThisLevel(false);
       setCoinsCollected(0);
       consecutiveMovesRef.current = { dx: 0, dy: 0, count: 0 };
     }
@@ -237,7 +242,8 @@ export default function App() {
       }
     }
 
-    if (cell === WALL || (cell === DOOR && !isDoorOpen)) {
+    const toggleOpen = puzzleStateRef.current.has('toggle_walls_open');
+    if (cell === WALL || (cell === DOOR && !isDoorOpen) || (cell === TOGGLE_WALL && !toggleOpen)) {
       setIsBumping(true);
       setTimeout(() => setIsBumping(false), 100);
       playSound(150, 'sine', 0.05, 0.05);
@@ -295,8 +301,18 @@ export default function App() {
       }
     } else if (cell === KEY_DOOR && hasKey) {
       setHasKey(false);
+      setUsedKeyThisLevel(true);
       setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
       playSound(600, 'square', 0.3);
+    } else if (cell === HIDDEN_BUTTON) {
+      setPuzzleState((prev) => {
+        const next = new Set(prev);
+        next.add(`${newX},${newY}`);
+        if (next.has('toggle_walls_open')) next.delete('toggle_walls_open');
+        else next.add('toggle_walls_open');
+        return next;
+      });
+      playSound(700, 'sine', 0.3, 0.1);
     } else if (cell === PRESSURE_PLATE || cell === LEVER) {
       setPuzzleState((prev) => new Set(prev).add(`${newX},${newY}`));
       setIsDoorOpen(true);
@@ -561,7 +577,8 @@ export default function App() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [gameState, isPaused, timeLimit, elapsedTime]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState, isPaused, timeLimit]);
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-cyan-500/30 overflow-hidden flex items-center justify-center">

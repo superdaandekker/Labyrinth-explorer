@@ -1,5 +1,5 @@
 import { Point, GameMode } from '../types';
-import { WALL, PATH, COIN, BREAKABLE_WALL, DOOR, LEVER, PRESSURE_PLATE, SPIKES, POISON_GAS, KEY, KEY_DOOR, GAME_MODES } from '../constants';
+import { WALL, PATH, COIN, BREAKABLE_WALL, DOOR, LEVER, PRESSURE_PLATE, SPIKES, POISON_GAS, KEY, KEY_DOOR, HIDDEN_BUTTON, TOGGLE_WALL, GAME_MODES } from '../constants';
 
 export const seededRandom = (seed: number) => {
   const x = Math.sin(seed++) * 10000;
@@ -200,6 +200,39 @@ export const generateMaze = (
       const ry = Math.floor(rnd() * (height - 2)) + 1;
       if (newMaze[ry][rx] === PATH && (rx !== 1 || ry !== 1) && (rx !== ex || ry !== ey))
         newMaze[ry][rx] = POISON_GAS;
+    }
+  }
+
+  // Hidden button + toggle walls (level 7+): secret passage revealed by stepping on a hidden trigger
+  if (levelIdx >= 7) {
+    // Find wall cells adjacent to at least 2 path cells (potential toggle walls)
+    const candidates: Point[] = [];
+    for (let ry = 1; ry < height - 1; ry++) {
+      for (let rx = 1; rx < width - 1; rx++) {
+        if (newMaze[ry][rx] !== WALL) continue;
+        const ns = [{ x: rx+1, y: ry }, { x: rx-1, y: ry }, { x: rx, y: ry+1 }, { x: rx, y: ry-1 }];
+        const pathNeighbors = ns.filter(n => newMaze[n.y][n.x] === PATH);
+        if (pathNeighbors.length >= 2) candidates.push({ x: rx, y: ry });
+      }
+    }
+    if (candidates.length > 0) {
+      const toggleIdx = Math.floor(rnd() * candidates.length);
+      newMaze[candidates[toggleIdx].y][candidates[toggleIdx].x] = TOGGLE_WALL;
+      // Place hidden button on a random path cell off main path
+      const mainPath = findPath(playerPos, exitPos, newMaze);
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const bx = Math.floor(rnd() * (width - 2)) + 1;
+        const by = Math.floor(rnd() * (height - 2)) + 1;
+        if (
+          newMaze[by][bx] === PATH &&
+          (bx !== 1 || by !== 1) &&
+          (bx !== ex || by !== ey) &&
+          !mainPath.some(p => p.x === bx && p.y === by)
+        ) {
+          newMaze[by][bx] = HIDDEN_BUTTON;
+          break;
+        }
+      }
     }
   }
 

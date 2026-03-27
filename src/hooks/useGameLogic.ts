@@ -21,6 +21,9 @@ interface UseGameLogicProps {
   maze: number[][];
   unlockedAchievements: string[];
   isHintActive: boolean;
+  visitedCells: Set<string>;
+  usedKey: boolean;
+  unlockedThemesCount: number;
   setMaze: (v: number[][]) => void;
   setExitPos: (v: Point) => void;
   setPlayerPos: (v: Point) => void;
@@ -52,7 +55,7 @@ interface UseGameLogicProps {
 export const useGameLogic = ({
   gameMode, isDailyChallenge, activeModifier, maxHealth, coins, elapsedTime, moves,
   gameState, playerHealth, currentLevel, playerPos, exitPos, maze,
-  unlockedAchievements, isHintActive,
+  unlockedAchievements, isHintActive, visitedCells, usedKey, unlockedThemesCount,
   setMaze, setExitPos, setPlayerPos, setPuzzleState, setBreakableWallsHealth,
   setCurrentLevel, setGameState, setMoves, setElapsedTime, setIsPaused,
   setIsHintActive, setHintPath, setVisitedCells, setPlayerTrail,
@@ -190,20 +193,28 @@ export const useGameLogic = ({
   );
 
   const checkAchievements = useCallback(() => {
+    const totalCells = maze.reduce((sum, row) => sum + row.filter(c => c !== 1).length, 0);
+    const stats = {
+      time: elapsedTime,
+      gameState,
+      coins,
+      level: currentLevel,
+      hintUsed: isHintActive,
+      visitedRatio: totalCells > 0 ? visitedCells.size / totalCells : 0,
+      usedKey,
+      unlockedThemesCount,
+    };
     ACHIEVEMENTS.forEach((achievement) => {
       if (unlockedAchievements.includes(achievement.id)) return;
-      let unlocked = false;
-      if (achievement.id === 'speedrunner' && elapsedTime < 15 && gameState === 'won') unlocked = true;
-      if (achievement.id === 'rich' && coins >= 500) unlocked = true;
-      if (achievement.id === 'veteran' && currentLevel >= 9) unlocked = true;
-      if (unlocked) {
+      if (achievement.condition(stats)) {
         setUnlockedAchievements((prev) => [...prev, achievement.id]);
         audioManager.playSound(1500, 'sine', 0.5, 0.2);
       }
     });
   }, [
-    unlockedAchievements, coins, elapsedTime, gameState,
-    currentLevel, setUnlockedAchievements,
+    unlockedAchievements, coins, elapsedTime, gameState, currentLevel,
+    isHintActive, visitedCells, usedKey, unlockedThemesCount, maze,
+    setUnlockedAchievements,
   ]);
 
   return { startLevel, nextLevel, restartGame, revive, useHint, watchAd, startDailyChallenge, checkAchievements };

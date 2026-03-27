@@ -8,6 +8,7 @@ type OscType = OscillatorType;
 class AudioManager {
   private ctx: AudioContext | null = null;
   private musicIntervalId: ReturnType<typeof setInterval> | null = null;
+  private bgAudio: HTMLAudioElement | null = null;
   private proximityAnimId: number | null = null;
   private proximityOsc: OscillatorNode | null = null;
   private proximityGain: GainNode | null = null;
@@ -34,33 +35,20 @@ class AudioManager {
   }
 
   startBackgroundMusic(musicVolume: number): void {
-    if (this.musicIntervalId !== null) return;
-    const ctx = this.getCtx();
-    const masterGain = ctx.createGain();
-    masterGain.connect(ctx.destination);
-    masterGain.gain.setValueAtTime(musicVolume * 0.1, ctx.currentTime);
-    const playNote = (freq: number, time: number, dur: number) => {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, time);
-      g.gain.setValueAtTime(0, time);
-      g.gain.linearRampToValueAtTime(0.1, time + 0.1);
-      g.gain.linearRampToValueAtTime(0, time + dur);
-      osc.connect(g);
-      g.connect(masterGain);
-      osc.start(time);
-      osc.stop(time + dur);
-    };
-    const melody = [261.63, 293.66, 329.63, 349.23, 392.0, 440.0, 493.88, 523.25];
-    let step = 0;
-    this.musicIntervalId = setInterval(() => {
-      playNote(melody[step % melody.length], ctx.currentTime, 1.5);
-      step++;
-    }, 2000);
+    if (this.bgAudio) return;
+    const audio = new Audio('/background-music.mp3');
+    audio.loop = true;
+    audio.volume = Math.min(1, Math.max(0, musicVolume));
+    audio.play().catch(() => {});
+    this.bgAudio = audio;
   }
 
   stopBackgroundMusic(): void {
+    if (this.bgAudio) {
+      this.bgAudio.pause();
+      this.bgAudio.currentTime = 0;
+      this.bgAudio = null;
+    }
     if (this.musicIntervalId !== null) {
       clearInterval(this.musicIntervalId);
       this.musicIntervalId = null;

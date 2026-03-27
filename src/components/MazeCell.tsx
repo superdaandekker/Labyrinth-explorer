@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Zap, Map, Skull, Sparkles, KeyRound, Lock } from 'lucide-react';
 import { ThemeType } from '../types';
-import { THEMES, ILLUSIONARY_WALL, WALL, BREAKABLE_WALL, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, COIN, PRESSURE_PLATE, LEVER, DOOR, SPIKES, POISON_GAS, PATH, KEY, KEY_DOOR } from '../constants';
+import { THEMES, ILLUSIONARY_WALL, WALL, BREAKABLE_WALL, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, COIN, PRESSURE_PLATE, LEVER, DOOR, SPIKES, POISON_GAS, PATH, KEY, KEY_DOOR, HIDDEN_BUTTON, TOGGLE_WALL } from '../constants';
 
 interface MazeCellProps {
   x: number;
@@ -180,6 +180,24 @@ const MazeCell = memo(({
             className={`w-full h-full rounded-full blur-md ${THEMES[theme].gasColor}`}
           />
           <Sparkles size={10} className={`${THEMES[theme].hazardColor} opacity-40`} />
+        </div>
+      )}
+
+      {cell === TOGGLE_WALL && (
+        <motion.div
+          animate={{ opacity: puzzleState.has('toggle_walls_open') ? [0.2, 0.4, 0.2] : 1 }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+          className={`absolute inset-[1px] rounded-[2px] ${puzzleState.has('toggle_walls_open') ? 'bg-violet-900/30 border border-violet-500/30' : 'bg-gradient-to-br from-violet-900 to-violet-800 border border-violet-600/50 shadow-[inset_0_0_8px_rgba(0,0,0,0.8)]'}`}
+        />
+      )}
+
+      {cell === HIDDEN_BUTTON && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.div
+            animate={{ opacity: [0.15, 0.35, 0.15] }}
+            transition={{ repeat: Infinity, duration: 3 }}
+            className="w-2 h-2 rounded-full border border-violet-400/40 bg-violet-500/20"
+          />
         </div>
       )}
 

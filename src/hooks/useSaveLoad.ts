@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, MutableRefObject } from 'react';
 import { GameMode, ThemeType, PowerupState, PowerupInventory } from '../types';
 
 interface SaveData {
@@ -23,7 +23,7 @@ interface SaveData {
 }
 
 interface UseSaveLoadProps {
-  autoSaveRef: React.MutableRefObject<SaveData>;
+  autoSaveRef: MutableRefObject<SaveData>;
   activePowerups: PowerupState;
   setHasSavedGame: (v: boolean) => void;
   setUnlockedThemes: (v: ThemeType[]) => void;
@@ -51,19 +51,22 @@ const applyParsedSave = (
   setters: Omit<UseSaveLoadProps, 'autoSaveRef' | 'activePowerups' | 'startLevel'>
 ) => {
   setters.setHasSavedGame(true);
-  setters.setCoins(data.coins || 0);
-  setters.setUnlockedThemes(data.unlockedThemes || ['default']);
-  setters.setUnlockedAchievements(data.unlockedAchievements || []);
-  setters.setLastDailyCompleted(data.lastDailyCompleted || null);
-  setters.setSoundEnabled(data.soundEnabled ?? true);
-  setters.setSfxVolume(data.sfxVolume ?? 0.5);
-  setters.setMusicVolume(data.musicVolume ?? 0.3);
-  setters.setControlScheme(data.controlScheme || 'swipe');
-  setters.setShownTutorials(new Set(data.shownTutorials || []));
-  setters.setUnlockedGameModes(data.unlockedGameModes || ['normal']);
+  setters.setCoins(typeof data.coins === 'number' ? data.coins : 0);
+  setters.setUnlockedThemes(Array.isArray(data.unlockedThemes) ? data.unlockedThemes : ['default']);
+  setters.setUnlockedAchievements(Array.isArray(data.unlockedAchievements) ? data.unlockedAchievements : []);
+  setters.setLastDailyCompleted(typeof data.lastDailyCompleted === 'string' ? data.lastDailyCompleted : null);
+  setters.setSoundEnabled(typeof data.soundEnabled === 'boolean' ? data.soundEnabled : true);
+  setters.setSfxVolume(typeof data.sfxVolume === 'number' ? data.sfxVolume : 0.5);
+  setters.setMusicVolume(typeof data.musicVolume === 'number' ? data.musicVolume : 0.3);
+  setters.setControlScheme(data.controlScheme === 'joystick' ? 'joystick' : 'swipe');
+  const rawTutorials = Array.isArray(data.shownTutorials) ? data.shownTutorials : [];
+  setters.setShownTutorials(new Set(rawTutorials));
+  setters.setUnlockedGameModes(Array.isArray(data.unlockedGameModes) ? data.unlockedGameModes : ['normal']);
   setters.setGameMode(data.gameMode || 'normal');
   setters.setTheme(data.theme || 'default');
-  const saved = data.activePowerups || { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 };
+  const defaultPowerups = { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 };
+  const saved = (data.activePowerups && typeof data.activePowerups === 'object' && !Array.isArray(data.activePowerups))
+    ? data.activePowerups : defaultPowerups;
   // Migrate legacy count-based powerups from activePowerups → inventory
   const { jump = 0, jumpPro = 0, ghost = 0, teleport = 0 } = saved;
   if (jump > 0 || jumpPro > 0 || ghost > 0 || teleport > 0) {

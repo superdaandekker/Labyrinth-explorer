@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, MutableRefObject } from 'react';
 import { Point } from '../types';
 import { audioManager } from '../audio/audioManager';
 
@@ -8,7 +8,7 @@ interface UseAudioProps {
   musicVolume: number;
   gameState: string;
   exitPos: Point;
-  playerPosRef: React.MutableRefObject<Point>;
+  playerPosRef: MutableRefObject<Point>;
 }
 
 export const useAudio = ({
