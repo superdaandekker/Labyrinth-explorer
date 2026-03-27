@@ -20,8 +20,8 @@ interface MazeViewportProps {
   hintPath: Point[];
   exitPos: Point;
   playerTrail: TrailPoint[];
-  joystick: JoystickState;
-  setJoystick: (joystick: JoystickState) => void;
+  joystick: JoystickState | null;
+  setJoystick: (joystick: JoystickState | null) => void;
   movePlayer: (dx: number, dy: number) => void;
   controlScheme: 'joystick' | 'swipe';
   damageFlash: boolean;
@@ -31,6 +31,8 @@ interface MazeViewportProps {
   jumpProActive: boolean;
   executeJumpPro: (dx: number, dy: number) => void;
   cancelJumpPro: () => void;
+  isFogOfWar?: boolean;
+  villainPos?: Point | null;
 }
 
 const MazeViewport: React.FC<MazeViewportProps> = ({
@@ -40,6 +42,7 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
   joystick, setJoystick, movePlayer, controlScheme,
   damageFlash, isBumping, isDashing = false, moveDirection = 'right',
   jumpProActive, executeJumpPro, cancelJumpPro,
+  isFogOfWar = false, villainPos = null,
 }) => {
   const handlePanStart = (_e: PointerEvent, info: PanInfo) => {
     if (controlScheme !== 'joystick') return;
@@ -79,8 +82,12 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
         ? { x: [-6, 6, -6, 6, 0], y: [-3, 3, -3, 3, 0], scale: [1, 1.03, 1] }
         : isBumping ? { x: [-2, 2, -2, 2, 0], scale: 1.01 } : { scale: 1 }}
       transition={damageFlash ? { duration: 0.2 } : { duration: 0.1 }}
-      className={`relative p-2 ${THEMES[theme].pathColor} border ${THEMES[theme].borderClass} rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden touch-none`}
-      style={{ width: VIEWPORT_SIZE * dynamicCellSize + 16, height: VIEWPORT_SIZE * dynamicCellSize + 16 }}
+      className={`relative p-2 ${THEMES[theme].pathColor} border ${THEMES[theme].borderClass} rounded-2xl overflow-hidden touch-none maze-perspective scanlines portal-flicker`}
+      style={{
+        width: VIEWPORT_SIZE * dynamicCellSize + 16,
+        height: VIEWPORT_SIZE * dynamicCellSize + 16,
+        boxShadow: '0 0 60px rgba(109,40,217,0.25), 0 0 120px rgba(67,56,202,0.1), 0 30px 60px rgba(0,0,0,0.7)',
+      }}
     >
       <motion.div
         className="absolute inset-0 opacity-10 pointer-events-none"
@@ -108,6 +115,7 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
             y: { type: 'spring', stiffness: 300, damping: 30 },
             scale: { duration: 0.3 }
           }}
+          style={{ rotateX: 14, transformStyle: 'preserve-3d' }}
           className="absolute"
         >
           {maze.map((row, y) => (
@@ -179,6 +187,56 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
               />
             ))}
           </AnimatePresence>
+
+          {/* Fog of war — dekt onbezochte cellen, blijft onder speler en slechterik */}
+          {isFogOfWar && !(activePowerups.map > Date.now()) && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                zIndex: 35,
+                left: 0,
+                top: 0,
+                width: (maze[0]?.length || 0) * dynamicCellSize,
+                height: (maze.length || 0) * dynamicCellSize,
+                background: `radial-gradient(circle at ${(playerPos.x + 0.5) * dynamicCellSize}px ${(playerPos.y + 0.5) * dynamicCellSize}px, transparent ${2.5 * dynamicCellSize}px, rgba(0,0,0,0.97) ${4.5 * dynamicCellSize}px)`,
+              }}
+            />
+          )}
+
+          {/* Slechterik — zichtbaar door fog als hij dichtbij komt */}
+          {villainPos && (
+            <motion.div
+              className="absolute rounded-full"
+              animate={{
+                left: villainPos.x * dynamicCellSize + 3,
+                top: villainPos.y * dynamicCellSize + 3,
+              }}
+              transition={{
+                left: { type: 'spring', stiffness: 250, damping: 28 },
+                top: { type: 'spring', stiffness: 250, damping: 28 },
+              }}
+              style={{
+                zIndex: 42,
+                width: dynamicCellSize - 6,
+                height: dynamicCellSize - 6,
+                backgroundColor: '#ef4444',
+                boxShadow: '0 0 20px rgba(239,68,68,0.9), 0 0 40px rgba(239,68,68,0.5)',
+              }}
+            >
+              <motion.div
+                className="absolute inset-0 rounded-full border-2 border-red-300"
+                animate={{ scale: [1, 1.5, 1], opacity: [0.8, 0, 0.8] }}
+                transition={{ repeat: Infinity, duration: 1.2, ease: 'easeOut' }}
+              />
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center"
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ repeat: Infinity, duration: 0.8 }}
+              >
+                <span className="text-white font-black leading-none select-none" style={{ fontSize: Math.max(7, dynamicCellSize * 0.26) }}>☠</span>
+              </motion.div>
+            </motion.div>
+          )}
 
           {/* Player */}
           <motion.div

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 
 export type Point = { x: number; y: number };
 
-export type GameState = 'start' | 'playing' | 'won' | 'gameover' | 'complete' | 'loading';
+export type GameState = 'start' | 'playing' | 'won' | 'gameover' | 'complete' | 'loading' | 'premium_summary';
 
 export type GameMode = 'normal' | 'timed' | 'premium' | 'hard';
 
@@ -13,6 +13,7 @@ export interface GameModeConfig {
   timeLimit: number | null;
   color: string;
   branchingFactor: number;
+  fogOfWar?: boolean;
   price?: number;
 }
 
@@ -24,12 +25,23 @@ export interface LeaderboardEntry {
   date: string;
 }
 
+export interface AchievementStats {
+  hintUsed?: boolean;
+  gameState?: string;
+  time?: number;
+  visitedRatio?: number;
+  coins?: number;
+  level?: number;
+  unlockedThemesCount?: number;
+  usedKey?: boolean;
+}
+
 export interface Achievement {
   id: string;
   title: string;
   description: string;
   icon: ReactNode;
-  condition: (stats: any) => boolean;
+  condition: (stats: AchievementStats) => boolean;
 }
 
 export type ThemeType = 'default' | 'cyberpunk' | 'ruins' | 'forest';
@@ -69,6 +81,7 @@ export interface PowerupState {
   magnet: number;
   freeze: number;
   teleport: number;
+  hammer?: number;
 }
 
 export type StreakRewardType = 'coins' | 'powerup' | 'milestone';

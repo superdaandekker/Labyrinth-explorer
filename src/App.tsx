@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Point, GameState, GameMode, ThemeType, PowerupState, PowerupInventory, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
-import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, ILLUSIONARY_WALL, HIDDEN_BUTTON, TOGGLE_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, DAILY_STREAK_REWARDS } from './constants';
+import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, KEY_BLUE, KEY_DOOR_BLUE, KEY_GREEN, KEY_DOOR_GREEN, KEY_YELLOW, KEY_DOOR_YELLOW, KEY_PURPLE, KEY_DOOR_PURPLE, ILLUSIONARY_WALL, HIDDEN_BUTTON, TOGGLE_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, VILLAIN_BASE_INTERVAL, HARD_MILESTONES, GAME_MODES } from './constants';
 import { findPath } from './utils/mazeGenerator';
 
 import { useAudio } from './hooks/useAudio';
@@ -14,6 +14,7 @@ import { formatTime } from './utils/formatTime';
 import { useLeaderboard } from './hooks/useLeaderboard';
 import { useUIState } from './hooks/useUIState';
 import { usePlayerAnim } from './hooks/usePlayerAnim';
+import { useDailyChallenge } from './hooks/useDailyChallenge';
 
 import TopBar from './components/TopBar';
 import StartMenu from './components/StartMenu';
@@ -24,6 +25,14 @@ import AchievementsModal from './components/Modals/AchievementsModal';
 import LeaderboardModal from './components/Modals/LeaderboardModal';
 import TutorialModal from './components/Modals/TutorialModal';
 import EndScreen from './components/EndScreen';
+
+// Gekleurde sleutel-deur paren: [sleuteltype, deurtype]
+const COLOR_KEY_PAIRS: [number, number][] = [
+  [KEY_BLUE, KEY_DOOR_BLUE],
+  [KEY_GREEN, KEY_DOOR_GREEN],
+  [KEY_YELLOW, KEY_DOOR_YELLOW],
+  [KEY_PURPLE, KEY_DOOR_PURPLE],
+];
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>('start');
@@ -42,7 +51,7 @@ export default function App() {
 
   const [playerHealth, setPlayerHealth] = useState(3);
   const [maxHealth] = useState(3);
-  const { damageFlash, isBumping, isDashing, moveDirection, previousPos,
+  const { damageFlash, isBumping, isDashing, moveDirection,
           setDamageFlash, setIsBumping, setIsDashing, setMoveDirection, setPreviousPos } = usePlayerAnim();
 
   const [theme, setTheme] = useState<ThemeType>('default');
@@ -65,7 +74,6 @@ export default function App() {
   const [streakCount, setStreakCount] = useState(0);
   const [lastStreakTimestamp, setLastStreakTimestamp] = useState(0);
   const [streakReward, setStreakReward] = useState<StreakReward | null>(null);
-  const streakProcessedRef = useRef(false);
   const [jumpProActive, setJumpProActive] = useState(false);
   const [visitedCells, setVisitedCells] = useState<Set<string>>(new Set());
   const [playerTrail, setPlayerTrail] = useState<TrailPoint[]>([]);
@@ -82,13 +90,26 @@ export default function App() {
   const [breakableWallsHealth, setBreakableWallsHealth] = useState<Record<string, number>>({});
   const [isDoorOpen, setIsDoorOpen] = useState(false);
   const [hasKey, setHasKey] = useState(false);
+  const [heldColorKeys, setHeldColorKeys] = useState<Set<number>>(new Set());
   const [usedKeyThisLevel, setUsedKeyThisLevel] = useState(false);
   const [coinsCollected, setCoinsCollected] = useState(0);
+
+  // Hard mode: villain
+  const [villainPos, setVillainPos] = useState<Point | null>(null);
+  const villainRef = useRef<Point | null>(null);
+
+  // Hard mode: ad-revive teller (reset per level, 3 ads = gratis revive)
+  const [adReviveCount, setAdReviveCount] = useState(0);
+  const adReviveCountRef = useRef(0);
+
+  // Hard mode: bijgehouden mijlpalen om dubbele uitkering te voorkomen
+  const [hardMilestonesAwarded, setHardMilestonesAwarded] = useState<number[]>([]);
 
   const playerPosRef = useRef(playerPos);
   const mazeRef = useRef(maze);
   const gameStateRef = useRef(gameState);
   const puzzleStateRef = useRef(puzzleState);
+  const isPausedRef = useRef(isPaused);
   const lastMoveTimeRef = useRef(0);
   const autoSaveRef = useRef({
     currentLevel, gameMode, soundEnabled, theme, coins,
@@ -98,11 +119,16 @@ export default function App() {
     streakCount, lastStreakTimestamp,
   });
 
-  useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
-  useEffect(() => { mazeRef.current = maze; }, [maze]);
-  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
-  useEffect(() => { puzzleStateRef.current = puzzleState; }, [puzzleState]);
-  useEffect(() => { powerupInventoryRef.current = powerupInventory; }, [powerupInventory]);
+  useEffect(() => {
+    playerPosRef.current = playerPos;
+    mazeRef.current = maze;
+    gameStateRef.current = gameState;
+    puzzleStateRef.current = puzzleState;
+    isPausedRef.current = isPaused;
+    powerupInventoryRef.current = powerupInventory;
+  }, [playerPos, maze, gameState, puzzleState, isPaused, powerupInventory]);
+  useEffect(() => { villainRef.current = villainPos; }, [villainPos]);
+  useEffect(() => { adReviveCountRef.current = adReviveCount; }, [adReviveCount]);
   useEffect(() => { localStorage.setItem('powerupInventory', JSON.stringify(powerupInventory)); }, [powerupInventory]);
   useEffect(() => {
     autoSaveRef.current = {
@@ -123,7 +149,7 @@ export default function App() {
   // Game Logic
   const {
     startLevel, nextLevel, restartGame, revive, useHint,
-    watchAd, startDailyChallenge, checkAchievements,
+    watchAd, checkAchievements,
   } = useGameLogic({
     gameMode, isDailyChallenge, activeModifier, maxHealth, coins, elapsedTime, moves,
     gameState, playerHealth, currentLevel, playerPos, exitPos, maze,
@@ -142,6 +168,16 @@ export default function App() {
     coins, gameMode, unlockedGameModes, unlockedThemes,
     setCoins, setUnlockedGameModes, setGameMode,
     setUnlockedThemes, setTheme, setPowerupInventory,
+  });
+
+  // Daily Challenge + Streak
+  const { startDailyChallenge } = useDailyChallenge({
+    streakCount, lastStreakTimestamp, lastDailyCompleted, coins,
+    gameState, isDailyChallenge,
+    setStreakCount, setLastStreakTimestamp, setLastDailyCompleted,
+    setCoins, setPowerupInventory, setStreakReward,
+    setIsDailyChallenge, setActiveModifier, setUnlockedGameModes, setGameMode,
+    startLevel, playSound,
   });
 
   // Save/Load
@@ -167,6 +203,7 @@ export default function App() {
   useEffect(() => {
     if (gameState === 'playing') {
       setHasKey(false);
+      setHeldColorKeys(new Set());
       setUsedKeyThisLevel(false);
       setCoinsCollected(0);
       consecutiveMovesRef.current = { dx: 0, dy: 0, count: 0 };
@@ -221,6 +258,13 @@ export default function App() {
       playSound(150, 'sine', 0.05, 0.05);
       return;
     }
+    const colorDoorBlocked = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && !heldColorKeys.has(k));
+    if (colorDoorBlocked) {
+      setIsBumping(true);
+      setTimeout(() => setIsBumping(false), 100);
+      playSound(150, 'sine', 0.05, 0.05);
+      return;
+    }
 
     if (cell === ILLUSIONARY_WALL) {
       setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
@@ -251,14 +295,21 @@ export default function App() {
     }
 
     if (cell === BREAKABLE_WALL) {
+      if ((activePowerups.hammer ?? 0) <= 0) {
+        setIsBumping(true);
+        setTimeout(() => setIsBumping(false), 100);
+        playSound(150, 'sine', 0.05, 0.05);
+        return;
+      }
       const wallKey = `${newX},${newY}`;
       const health = (breakableWallsHealth[wallKey] ?? 3) - 1;
       if (health <= 0) {
         setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-        playSound(300, 'square', 0.2);
+        setActivePowerups((prev) => ({ ...prev, hammer: (prev.hammer ?? 1) - 1 }));
+        playSound(300, 'square', 0.3);
       } else {
         setBreakableWallsHealth((prev) => ({ ...prev, [wallKey]: health }));
-        playSound(200, 'square', 0.1);
+        playSound(200, 'square', 0.15);
       }
       return;
     }
@@ -302,6 +353,16 @@ export default function App() {
     } else if (cell === KEY_DOOR && hasKey) {
       setHasKey(false);
       setUsedKeyThisLevel(true);
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
+      playSound(600, 'square', 0.3);
+    } else if (COLOR_KEY_PAIRS.some(([k]) => cell === k)) {
+      const [keyType] = COLOR_KEY_PAIRS.find(([k]) => cell === k)!;
+      setHeldColorKeys(prev => new Set([...prev, keyType]));
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
+      playSound(1400, 'sine', 0.3);
+    } else if (COLOR_KEY_PAIRS.some(([k, d]) => cell === d && heldColorKeys.has(k))) {
+      const [keyType] = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && heldColorKeys.has(k))!;
+      setHeldColorKeys(prev => { const next = new Set(prev); next.delete(keyType); return next; });
       setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
       playSound(600, 'square', 0.3);
     } else if (cell === HIDDEN_BUTTON) {
@@ -353,7 +414,7 @@ export default function App() {
       setShownTutorials((prev) => new Set(prev).add('coins'));
     }
   }, [
-    gameState, isPaused, activePowerups, activeModifier, isDoorOpen, hasKey,
+    gameState, isPaused, activePowerups, activeModifier, isDoorOpen, hasKey, heldColorKeys,
     breakableWallsHealth, exitPos, shownTutorials, playSound,
   ]);
 
@@ -393,6 +454,11 @@ export default function App() {
       setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
     } else if (cell === KEY) {
       setHasKey(true);
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
+      playSound(1400, 'sine', 0.3);
+    } else if (COLOR_KEY_PAIRS.some(([k]) => cell === k)) {
+      const [keyType] = COLOR_KEY_PAIRS.find(([k]) => cell === k)!;
+      setHeldColorKeys(prev => new Set([...prev, keyType]));
       setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
       playSound(1400, 'sine', 0.3);
     } else if (cell === SPIKES || cell === POISON_GAS) {
@@ -465,8 +531,8 @@ export default function App() {
     if ((powerupInventoryRef.current[id] || 0) <= 0) return;
     setPowerupInventory((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) - 1) }));
     if (id === 'shield') setActivePowerups((p) => ({ ...p, shield: true }));
-    if (id === 'speed') setActivePowerups((p) => ({ ...p, speed: Date.now() + 30000 }));
-    if (id === 'map') setActivePowerups((p) => ({ ...p, map: Date.now() + 60000 }));
+    if (id === 'speed') setActivePowerups((p) => ({ ...p, speed: Date.now() + 10000 }));
+    if (id === 'map') setActivePowerups((p) => ({ ...p, map: Date.now() + 5000 }));
     if (id === 'ghost') setActivePowerups((p) => ({ ...p, ghost: Math.min(99, p.ghost + 1) }));
     if (id === 'magnet') setActivePowerups((p) => ({ ...p, magnet: Date.now() + 15000 }));
     if (id === 'freeze') setActivePowerups((p) => ({ ...p, freeze: Date.now() + 10000 }));
@@ -502,53 +568,106 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activePowerups.magnet, playSound]);
 
-  // Streak: award on daily challenge win
+
+  // Hard mode: initialiseer slechterik bij niveau-start (level >= 20)
   useEffect(() => {
-    if (gameState !== 'won' || !isDailyChallenge) {
-      streakProcessedRef.current = false;
+    if (gameMode !== 'hard' || currentLevel < 20 || gameState !== 'playing') {
+      setVillainPos(null);
+      villainRef.current = null;
       return;
     }
-    if (streakProcessedRef.current) return;
-    streakProcessedRef.current = true;
-
-    const now = Date.now();
-    const elapsed = now - lastStreakTimestamp;
-    const oneDay = 24 * 60 * 60 * 1000;
-    const twoDays = 48 * 60 * 60 * 1000;
-
-    let newStreak: number;
-    if (lastStreakTimestamp === 0 || elapsed >= twoDays) {
-      newStreak = 1;
-    } else if (elapsed < oneDay) {
-      // Already won today — no duplicate reward
-      return;
-    } else {
-      newStreak = (streakCount % 50) + 1;
+    const m = mazeRef.current;
+    const p = playerPosRef.current;
+    const cells: Point[] = [];
+    for (let y = 1; y < m.length - 1; y++) {
+      for (let x = 1; x < m[0].length - 1; x++) {
+        if (m[y][x] !== WALL && Math.abs(x - p.x) + Math.abs(y - p.y) > 8)
+          cells.push({ x, y });
+      }
     }
-
-    const rewardIdx = (newStreak - 1) % DAILY_STREAK_REWARDS.length;
-    const reward = DAILY_STREAK_REWARDS[rewardIdx];
-
-    setStreakCount(newStreak);
-    setLastStreakTimestamp(now);
-
-    // Apply reward
-    if (reward.type === 'coins') {
-      setCoins((prev) => Math.min(9999, prev + reward.amount));
-    } else if (reward.type === 'powerup' && reward.powerupId) {
-      const id = reward.powerupId;
-      const count = reward.amount;
-      setActivePowerups((prev) => {
-        const val = prev[id];
-        if (typeof val === 'boolean') return { ...prev, [id]: true };
-        return { ...prev, [id]: Math.min(99, (val as number) + count) };
-      });
+    if (cells.length > 0) {
+      const spawn = cells[Math.floor(Math.random() * cells.length)];
+      setVillainPos(spawn);
+      villainRef.current = spawn;
     }
+  }, [currentLevel, gameState, gameMode]);
 
-    setStreakReward(reward);
+  // Hard mode: slechterik AI-loop — 0,1% sneller per level vanaf level 20
+  useEffect(() => {
+    if (gameMode !== 'hard' || currentLevel < 20 || gameState !== 'playing') return;
+    const levelsIn = Math.max(0, currentLevel - 20);
+    const interval = Math.round(VILLAIN_BASE_INTERVAL / (1 + levelsIn * 0.001));
+    const timer = setInterval(() => {
+      if (isPausedRef.current || gameStateRef.current !== 'playing') return;
+      const vp = villainRef.current;
+      if (!vp) return;
+      const player = playerPosRef.current;
+      const m = mazeRef.current;
+      const dist = Math.abs(vp.x - player.x) + Math.abs(vp.y - player.y);
+      if (dist <= 1) {
+        setPlayerHealth(prev => {
+          const next = prev - 1;
+          if (next <= 0) setGameState('gameover');
+          return next;
+        });
+        setDamageFlash(true);
+        setTimeout(() => setDamageFlash(false), 200);
+        const cells: Point[] = [];
+        for (let y = 1; y < m.length - 1; y++) {
+          for (let x = 1; x < m[0].length - 1; x++) {
+            if (m[y][x] !== WALL && Math.abs(x - player.x) + Math.abs(y - player.y) > 8)
+              cells.push({ x, y });
+          }
+        }
+        if (cells.length > 0) {
+          const np = cells[Math.floor(Math.random() * cells.length)];
+          villainRef.current = np;
+          setVillainPos(np);
+        }
+        return;
+      }
+      const path = findPath(vp, player, m);
+      if (path.length > 0) {
+        villainRef.current = path[0];
+        setVillainPos(path[0]);
+      }
+    }, interval);
+    return () => clearInterval(timer);
+  }, [gameMode, currentLevel, gameState]);
+
+  // Hard mode: ad-revive — reset teller bij nieuw level
+  useEffect(() => {
+    if (gameState === 'playing') setAdReviveCount(0);
+  }, [currentLevel]);
+
+  // Hard mode: mijlpaal-beloningen bij sector 10/20/30...
+  useEffect(() => {
+    if (gameMode !== 'hard' || gameState !== 'won') return;
+    const sector = currentLevel + 1;
+    const milestone = HARD_MILESTONES[sector];
+    if (!milestone || hardMilestonesAwarded.includes(sector)) return;
+    setHardMilestonesAwarded(prev => [...prev, sector]);
+    setCoins(prev => prev + milestone.coins);
+    setPowerupInventory(prev => ({ ...prev, [milestone.powerupId]: (prev[milestone.powerupId] || 0) + 1 }));
+    setStreakReward({ type: 'milestone', amount: milestone.coins, label: `🔥 Hard Sector ${sector}! +${milestone.coins} coins` });
     setTimeout(() => setStreakReward(null), 4000);
-    playSound(1500, 'sine', 0.5, 0.2);
-  }, [gameState, isDailyChallenge]);
+  }, [currentLevel, gameState, gameMode]);
+
+  // Hard mode: gratis revive na 3 advertenties
+  const watchAdForRevive = useCallback(() => {
+    const nextCount = adReviveCountRef.current + 1;
+    setGameState('loading');
+    setTimeout(() => {
+      if (nextCount >= 3) {
+        setAdReviveCount(0);
+        setPlayerHealth(maxHealth);
+        setGameState('playing');
+      } else {
+        setAdReviveCount(nextCount);
+        setGameState('gameover');
+      }
+    }, 2000);
+  }, [maxHealth]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -557,12 +676,14 @@ export default function App() {
         case 'ArrowDown': case 's': movePlayer(0, 1); break;
         case 'ArrowLeft': case 'a': movePlayer(-1, 0); break;
         case 'ArrowRight': case 'd': movePlayer(1, 0); break;
-        case 'Escape': setIsPaused((p) => !p); break;
+        case 'Escape':
+          if (gameStateRef.current === 'playing') setIsPaused(!isPausedRef.current);
+          break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [movePlayer]);
+  }, [movePlayer, setIsPaused]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {
@@ -581,7 +702,18 @@ export default function App() {
   }, [gameState, isPaused, timeLimit]);
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-cyan-500/30 overflow-hidden flex items-center justify-center">
+    <div className="min-h-screen dungeon-bg text-white font-sans selection:bg-violet-500/30 overflow-hidden flex items-center justify-center">
+      {/* Hidden SVG filter definitions — referenced via CSS filter: url(#...) */}
+      <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
+        <defs>
+          <filter id="dungeon-noise" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.018 0.024" numOctaves="4" seed="7" result="noise" />
+            <feColorMatrix type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.15  0 0 0 0 0.65  0 0 0 0.18 0" in="noise" result="tinted" />
+            <feBlend in="SourceGraphic" in2="tinted" mode="overlay" />
+          </filter>
+        </defs>
+      </svg>
+
       {gameState === 'playing' && (
         <TopBar
           playerHealth={playerHealth}
@@ -605,7 +737,7 @@ export default function App() {
             buyTheme={(t) => buyTheme(t, THEMES[t].price)}
             startLevel={startLevel}
             watchAd={watchAd}
-            startDailyChallenge={() => startDailyChallenge(lastDailyCompleted)}
+            startDailyChallenge={startDailyChallenge}
             lastDailyCompleted={lastDailyCompleted}
             setShowAchievements={setShowAchievements}
             setShowLeaderboard={setShowLeaderboard}
@@ -657,7 +789,6 @@ export default function App() {
             hintPath={hintPath}
             exitPos={exitPos}
             playerTrail={playerTrail}
-            previousPos={previousPos}
             moveDirection={moveDirection}
             isDashing={isDashing}
             joystick={joystick}
@@ -667,8 +798,6 @@ export default function App() {
             setGameState={setGameState}
             startLevel={startLevel}
             controlScheme={controlScheme}
-            setShowShop={setShowShop}
-            setShowAchievements={setShowAchievements}
             jumpCount={powerupInventory.jump || 0}
             jumpProCount={powerupInventory.jumpPro || 0}
             jumpProActive={jumpProActive}
@@ -684,6 +813,9 @@ export default function App() {
             powerupInventory={powerupInventory}
             activatePowerup={activatePowerup}
             streakReward={streakReward}
+            isFogOfWar={GAME_MODES[gameMode].fogOfWar ?? false}
+            villainPos={villainPos}
+            gameMode={gameMode}
           />
         )}
 
@@ -704,9 +836,17 @@ export default function App() {
               startLevel={startLevel}
               restartGame={restartGame}
               nextLevel={() => {
-                const s = calculateScore({ currentLevel, elapsedTime, moves, playerHealth, coinsCollected });
-                nextLevel(s);
+                if (gameMode === 'hard') {
+                  // Hard mode: onbeperkt levels, geen cap op 10
+                  startLevel(currentLevel + 1);
+                } else {
+                  const s = calculateScore({ currentLevel, elapsedTime, moves, playerHealth, coinsCollected });
+                  nextLevel(s);
+                }
               }}
+              gameMode={gameMode}
+              adReviveCount={adReviveCount}
+              onWatchAdRevive={gameMode === 'hard' ? watchAdForRevive : undefined}
             />
           );
         })()}

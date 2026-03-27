@@ -27,6 +27,18 @@ interface StartMenuProps {
   coins: number;
 }
 
+/* Particle positions — deterministic, no random() on render */
+const PARTICLES: { left: string; top: string; dur: string; delay: string; size: number; color: string }[] = [
+  { left: '8%',  top: '22%', dur: '6s',   delay: '0s',    size: 3, color: 'rgba(167,139,250,0.7)' },
+  { left: '88%', top: '12%', dur: '8.5s', delay: '1.2s',  size: 2, color: 'rgba(96,165,250,0.6)'  },
+  { left: '20%', top: '70%', dur: '7s',   delay: '0.5s',  size: 2, color: 'rgba(240,171,252,0.5)' },
+  { left: '72%', top: '55%', dur: '9s',   delay: '2.1s',  size: 3, color: 'rgba(167,139,250,0.5)' },
+  { left: '50%', top: '5%',  dur: '6.5s', delay: '0.8s',  size: 2, color: 'rgba(110,231,183,0.5)' },
+  { left: '93%', top: '78%', dur: '7.5s', delay: '1.6s',  size: 2, color: 'rgba(167,139,250,0.6)' },
+  { left: '35%', top: '90%', dur: '8s',   delay: '3s',    size: 3, color: 'rgba(96,165,250,0.4)'  },
+  { left: '62%', top: '30%', dur: '5.5s', delay: '0.3s',  size: 2, color: 'rgba(240,171,252,0.6)' },
+];
+
 const StartMenu: React.FC<StartMenuProps> = ({
   gameMode,
   setGameMode,
@@ -52,56 +64,80 @@ const StartMenu: React.FC<StartMenuProps> = ({
   return (
     <motion.div
       key="start"
-      initial={{ opacity: 0, scale: 0.92, filter: 'blur(12px)' }}
+      initial={{ opacity: 0, scale: 0.88, filter: 'blur(20px)' }}
       animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, scale: 1.08, filter: 'blur(12px)' }}
-      transition={{ duration: 0.5, ease: 'anticipate' }}
+      exit={{ opacity: 0, scale: 1.1, filter: 'blur(20px)' }}
+      transition={{ duration: 0.6, ease: 'anticipate' }}
       className="z-10 w-full max-w-sm px-4 flex flex-col items-center"
     >
-      {/* Title block */}
-      <div className="text-center mb-6">
+      {/* ── Fixed floating particles ── */}
+      {PARTICLES.map((p, i) => (
+        <div
+          key={i}
+          className="fixed particle rounded-full"
+          style={{
+            left: p.left, top: p.top,
+            width: p.size, height: p.size,
+            background: p.color,
+            '--dur': p.dur,
+            '--delay': p.delay,
+          } as React.CSSProperties}
+        />
+      ))}
+
+      {/* ── Title block ── */}
+      <div className="text-center mb-8">
         <motion.div
-          initial={{ y: -20, opacity: 0 }}
+          initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.05 }}
-          className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold mb-1"
+          className="text-[9px] uppercase tracking-[0.45em] text-violet-400/50 font-bold mb-2"
         >
-          ☠️ abandon all hope, ye who enter
+          ✦ abandon all hope, ye who enter ✦
         </motion.div>
+
         <motion.h1
-          initial={{ y: -10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="text-5xl sm:text-6xl font-black tracking-tighter bg-gradient-to-br from-cyan-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic leading-none"
+          initial={{ y: -15, opacity: 0, scale: 0.9 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+          className="title-liquid font-black italic leading-none select-none"
+          style={{ fontSize: 'clamp(3.5rem, 16vw, 5.5rem)', letterSpacing: '-0.04em' }}
         >
           LABYRINTH
         </motion.h1>
+
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 0.25, duration: 0.5 }}
+          className="h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent my-3"
+        />
+
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-zinc-500 text-xs mt-1"
+          transition={{ delay: 0.3 }}
+          className="text-violet-300/35 text-[11px] tracking-[0.15em] font-medium"
         >
-          turn left. no wait, right. actually… good luck.
+          EXPLORER
         </motion.p>
       </div>
 
-      {/* Coins */}
+      {/* ── Coins ── */}
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-amber-500/30 rounded-full mb-6 shadow-[0_0_20px_rgba(245,158,11,0.1)]"
+        transition={{ delay: 0.18 }}
+        className="flex items-center gap-2 px-4 py-2 glass rounded-full mb-6 shadow-violet-glow-sm"
       >
-        <Coins size={14} className="text-amber-400" />
+        <Coins size={13} className="text-amber-400" />
         <span className="text-amber-400 font-black text-sm tabular-nums">{coins}</span>
-        <span className="text-zinc-600 text-[10px] font-medium">coins</span>
+        <span className="text-violet-400/35 text-[10px]">coins</span>
         <button
           onClick={watchAd}
-          className="ml-1 flex items-center gap-1 text-[9px] text-zinc-500 hover:text-amber-400 transition-colors font-bold uppercase tracking-wide border-l border-zinc-800 pl-2"
+          className="ml-1 flex items-center gap-1 text-[9px] text-violet-400/35 hover:text-amber-400 transition-colors font-bold uppercase tracking-wide border-l border-white/10 pl-2"
         >
-          <Eye size={10} />
-          +50
+          <Eye size={10} /> +50
         </button>
       </motion.div>
 
@@ -111,52 +147,53 @@ const StartMenu: React.FC<StartMenuProps> = ({
             key="main"
             initial={{ opacity: 0, x: 0 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
+            exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.2 }}
             className="w-full flex flex-col gap-3"
           >
-            {/* PLAY button */}
+            {/* ── PLAY — 3D extruded ── */}
             <motion.button
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.22 }}
               onClick={() => setShowModeSelect(true)}
-              className="group relative w-full py-4 bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-black rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] text-sm tracking-widest"
+              className="relative w-full py-4 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-black rounded-xl overflow-hidden btn-extrude text-sm tracking-[0.2em]"
             >
-              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
-              <div className="flex items-center justify-center gap-2">
-                <Play size={18} fill="currentColor" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+              <div className="flex items-center justify-center gap-2 relative z-10">
+                <Play size={17} fill="currentColor" />
                 NEW GAME
-                <ChevronRight size={16} className="opacity-60" />
+                <ChevronRight size={15} className="opacity-50" />
               </div>
             </motion.button>
 
-            {/* Continue */}
+            {/* ── Continue ── */}
             {hasSavedGame && (
               <motion.button
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
+                transition={{ delay: 0.27 }}
                 onClick={loadSavedGame}
-                className="w-full py-3.5 bg-zinc-900 text-white font-bold rounded-2xl border border-zinc-700 hover:border-zinc-500 transition-all hover:scale-[1.01] active:scale-[0.98] text-sm flex items-center justify-center gap-2"
+                className="w-full py-3.5 glass rounded-xl card-3d text-white font-bold text-sm flex items-center justify-center gap-2 hover:border-violet-500/40 transition-colors"
               >
-                <RotateCcw size={16} />
+                <RotateCcw size={15} />
                 CONTINUE
               </motion.button>
             )}
 
-            {/* Daily Challenge */}
+            {/* ── Daily Challenge ── */}
             <motion.button
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.32 }}
               onClick={startDailyChallenge}
               disabled={dailyDone}
-              className="relative w-full py-3.5 bg-zinc-900 border border-amber-500/40 rounded-2xl overflow-hidden hover:border-amber-500/70 transition-all hover:scale-[1.01] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative w-full py-3.5 glass border border-amber-500/30 rounded-xl overflow-hidden card-3d hover:border-amber-500/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <div className="flex flex-col items-center gap-0.5">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-events-none" />
+              <div className="flex flex-col items-center gap-0.5 relative z-10">
                 <div className="flex items-center gap-2 text-amber-400 font-black text-sm">
-                  <Zap size={16} />
+                  <Zap size={15} />
                   DAILY CHALLENGE
                   {!dailyDone && (
                     <span className="px-1.5 py-0.5 bg-amber-500/20 rounded-full text-[8px] font-black text-amber-300 uppercase tracking-widest animate-pulse">
@@ -164,71 +201,55 @@ const StartMenu: React.FC<StartMenuProps> = ({
                     </span>
                   )}
                 </div>
-                <div className="text-[9px] text-zinc-500 uppercase tracking-widest">
+                <div className="text-[9px] text-violet-400/40 uppercase tracking-widest">
                   {dailyDone ? '✓ completed today' : `Today: ${dailyModifier.name}`}
                 </div>
               </div>
             </motion.button>
 
-            {/* Grid: Shop · Leaderboard · Achievements · Settings */}
+            {/* ── Icon grid ── */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="grid grid-cols-2 gap-2"
+              transition={{ delay: 0.38 }}
+              className="grid grid-cols-4 gap-2"
             >
-              <button
-                onClick={() => setShowShop(true)}
-                className="flex flex-col items-center gap-1.5 py-4 bg-zinc-900 border border-purple-500/30 rounded-2xl hover:border-purple-500/60 hover:bg-zinc-800/80 transition-all group"
-              >
-                <ShoppingBag size={20} className="text-purple-400 group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Shop</span>
-              </button>
-
-              <button
-                onClick={() => setShowLeaderboard(true)}
-                className="flex flex-col items-center gap-1.5 py-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-600 hover:bg-zinc-800/80 transition-all group"
-              >
-                <Trophy size={20} className="text-amber-400 group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Ranks</span>
-              </button>
-
-              <button
-                onClick={() => setShowAchievements(true)}
-                className="flex flex-col items-center gap-1.5 py-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-600 hover:bg-zinc-800/80 transition-all group"
-              >
-                <Star size={20} className="text-cyan-400 group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Awards</span>
-              </button>
-
-              <button
-                onClick={() => setShowSettings(true)}
-                className="flex flex-col items-center gap-1.5 py-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:border-zinc-600 hover:bg-zinc-800/80 transition-all group"
-              >
-                <Settings size={20} className="text-zinc-400 group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Settings</span>
-              </button>
+              {[
+                { onClick: () => setShowShop(true),         icon: <ShoppingBag size={18} />, label: 'Shop',     color: 'text-violet-400', border: 'border-violet-500/25 hover:border-violet-400/55' },
+                { onClick: () => setShowLeaderboard(true),  icon: <Trophy size={18} />,      label: 'Ranks',    color: 'text-amber-400',  border: 'hover:border-amber-500/40' },
+                { onClick: () => setShowAchievements(true), icon: <Star size={18} />,        label: 'Awards',   color: 'text-indigo-300', border: 'hover:border-indigo-400/40' },
+                { onClick: () => setShowSettings(true),     icon: <Settings size={18} />,    label: 'Settings', color: 'text-violet-300/50', border: 'hover:border-violet-400/30' },
+              ].map(({ onClick, icon, label, color, border }) => (
+                <button
+                  key={label}
+                  onClick={onClick}
+                  className={`flex flex-col items-center gap-1.5 py-3.5 glass border rounded-xl transition-all card-3d group ${border}`}
+                >
+                  <span className={`${color} group-hover:scale-110 transition-transform`}>{icon}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-violet-300/50">{label}</span>
+                </button>
+              ))}
             </motion.div>
           </motion.div>
+
         ) : (
-          /* Game mode selector */
+          /* ── Mode selector ── */
           <motion.div
             key="modeselect"
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 30 }}
+            exit={{ opacity: 0, x: 40 }}
             transition={{ duration: 0.2 }}
             className="w-full flex flex-col gap-3"
           >
             <button
               onClick={() => setShowModeSelect(false)}
-              className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors text-xs font-bold uppercase tracking-widest self-start mb-1"
+              className="flex items-center gap-1.5 text-violet-400/45 hover:text-violet-300 transition-colors text-xs font-bold uppercase tracking-widest self-start mb-1"
             >
-              <ArrowLeft size={14} />
-              Back
+              <ArrowLeft size={13} /> Back
             </button>
 
-            <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-bold ml-1">
+            <div className="text-[9px] uppercase tracking-[0.25em] text-violet-400/40 font-bold ml-1">
               Select Game Mode
             </div>
 
@@ -241,35 +262,29 @@ const StartMenu: React.FC<StartMenuProps> = ({
                   <button
                     key={mode}
                     onClick={() => {
-                      if (isUnlocked) {
-                        setGameMode(mode);
-                      } else {
-                        buyGameMode(mode);
-                      }
+                      if (isUnlocked) { setGameMode(mode); }
+                      else { buyGameMode(mode); }
                     }}
-                    className={`relative w-full py-3 px-4 rounded-xl border transition-all flex flex-col items-start gap-0.5 ${
+                    className={`relative w-full py-3 px-4 rounded-xl border transition-all flex flex-col items-start gap-0.5 card-3d ${
                       isSelected
-                        ? 'bg-zinc-800 border-zinc-600 text-white shadow-xl'
-                        : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                        ? 'bg-violet-900/30 border-violet-500/55 text-white shadow-[0_0_20px_rgba(139,92,246,0.18)]'
+                        : 'glass border-white/6 text-violet-300/50 hover:border-violet-500/30'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
-                      <span className={`text-xs font-black italic tracking-tight ${isSelected ? config.color : 'text-zinc-400'}`}>
+                      <span className={`text-xs font-black italic tracking-tight ${isSelected ? config.color : 'text-violet-300/55'}`}>
                         {config.label}
                       </span>
                       {!isUnlocked && (
                         <div className="flex items-center gap-1 text-amber-400 text-[9px] font-bold">
-                          <Coins size={10} />
-                          <span>{config.price}</span>
+                          <Coins size={10} /><span>{config.price}</span>
                         </div>
                       )}
                       {isSelected && isUnlocked && (
-                        <span className="text-[8px] text-green-400 font-black uppercase tracking-widest">selected</span>
+                        <span className="text-[8px] text-violet-300 font-black uppercase tracking-widest">✦ active</span>
                       )}
                     </div>
-                    <p className="text-[9px] text-zinc-500 text-left leading-tight opacity-80">
-                      {config.description}
-                    </p>
+                    <p className="text-[9px] text-violet-400/38 text-left leading-tight">{config.description}</p>
                   </button>
                 );
               })}
@@ -277,12 +292,11 @@ const StartMenu: React.FC<StartMenuProps> = ({
 
             <button
               onClick={() => startLevel(0)}
-              className="group relative w-full py-4 bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-black rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(139,92,246,0.3)] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)] transition-all hover:scale-[1.02] active:scale-[0.98] text-sm tracking-widest mt-1"
+              className="relative w-full py-4 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-black rounded-xl overflow-hidden btn-extrude text-sm tracking-[0.2em] mt-1"
             >
-              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
-              <div className="flex items-center justify-center gap-2">
-                <Play size={18} fill="currentColor" />
-                START
+              <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+              <div className="flex items-center justify-center gap-2 relative z-10">
+                <Play size={17} fill="currentColor" /> START
               </div>
             </button>
           </motion.div>

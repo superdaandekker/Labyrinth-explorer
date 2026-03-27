@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Zap, Map, KeyRound, Ghost, Magnet, Snowflake, Play, Home, RotateCcw } from 'lucide-react';
-import { ThemeType, Point, PowerupState, ActiveModifier, JoystickState, TrailPoint, GameState, StreakReward } from '../types';
+import { ThemeType, Point, PowerupState, ActiveModifier, JoystickState, TrailPoint, GameState, StreakReward, GameMode } from '../types';
 import { THEMES } from '../constants';
 import GameHeader from './GameHeader';
 import MazeViewport from './MazeViewport';
@@ -33,16 +33,13 @@ interface GameUIProps {
   hintPath: Point[];
   exitPos: Point;
   playerTrail: TrailPoint[];
-  previousPos: Point | null;
-  joystick: JoystickState;
-  setJoystick: (joystick: JoystickState) => void;
+  joystick: JoystickState | null;
+  setJoystick: (joystick: JoystickState | null) => void;
   movePlayer: (dx: number, dy: number) => void;
   isPaused: boolean;
   setGameState: (state: GameState) => void;
   startLevel: (level: number) => void;
   controlScheme: 'joystick' | 'swipe';
-  setShowShop: (show: boolean) => void;
-  setShowAchievements: (show: boolean) => void;
   isDashing?: boolean;
   moveDirection?: 'up' | 'down' | 'left' | 'right';
   jumpCount: number;
@@ -60,6 +57,9 @@ interface GameUIProps {
   powerupInventory: Record<string, number>;
   activatePowerup: (id: string) => void;
   streakReward: StreakReward | null;
+  isFogOfWar?: boolean;
+  villainPos?: Point | null;
+  gameMode?: GameMode;
 }
 
 const GameUI: React.FC<GameUIProps> = ({
@@ -73,6 +73,7 @@ const GameUI: React.FC<GameUIProps> = ({
   jumpCount, jumpProCount, jumpProActive, useJump, useJumpPro, executeJumpPro, cancelJumpPro,
   teleportCount, useTeleport, ghostCount, magnetActive, freezeActive,
   powerupInventory, activatePowerup, streakReward,
+  isFogOfWar = false, villainPos = null,
 }) => (
   <motion.div
     key="playing"
@@ -195,6 +196,8 @@ const GameUI: React.FC<GameUIProps> = ({
       jumpProActive={jumpProActive}
       executeJumpPro={executeJumpPro}
       cancelJumpPro={cancelJumpPro}
+      isFogOfWar={isFogOfWar}
+      villainPos={villainPos}
     />
 
     <GameControls
@@ -287,4 +290,4 @@ const GameUI: React.FC<GameUIProps> = ({
   </motion.div>
 );
 
-export default GameUI;
+export default React.memo(GameUI);

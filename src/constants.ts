@@ -1,9 +1,11 @@
-import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost, ChevronsUp, Crosshair, Magnet, Snowflake, Navigation } from 'lucide-react';
+import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost, ChevronsUp, Crosshair, Magnet, Snowflake, Navigation, Hammer } from 'lucide-react';
 import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier, StreakReward, MilestoneBonus, DailyChallengeConfig } from './types';
 import React from 'react';
 
 // Maze cell type constants
 export const CELL_SIZE = 30;
+export const HINT_COST = 50;
+export const REVIVE_COST = 75;
 export const WALL = 1;
 export const PATH = 0;
 export const BREAKABLE_WALL = 2;
@@ -21,6 +23,15 @@ export const POWERUP_SPEED = 13;
 export const POWERUP_MAP = 14;
 export const KEY = 15;
 export const KEY_DOOR = 16;
+export const KEY_BLUE = 17;
+export const KEY_DOOR_BLUE = 18;
+export const KEY_GREEN = 19;
+export const KEY_DOOR_GREEN = 20;
+export const KEY_YELLOW = 21;
+export const KEY_DOOR_YELLOW = 22;
+export const KEY_PURPLE = 23;
+export const KEY_DOOR_PURPLE = 24;
+export const PREMIUM_LOOT = 25;
 export const VIEWPORT_SIZE = 9;
 
 export const DAILY_MODIFIERS: DailyModifier[] = [
@@ -184,7 +195,23 @@ export const POWERUPS: Record<string, PowerupConfig> = {
     price: 400,
     unlockedLevel: 40,
   },
+  hammer: {
+    id: 'hammer',
+    name: 'Hamer',
+    description: 'Breek 1 breekbare muur. Eénmalig gebruik.',
+    icon: React.createElement(Hammer, { size: 16 }),
+    color: 'text-stone-300',
+    bgColor: 'bg-stone-300/20',
+    borderColor: 'border-stone-300/50',
+    price: 50,
+  },
 };
+
+// Spawn-gewichten voor premium loot — auto-afgeleid van prijs, nieuwe items komen automatisch mee
+export const PREMIUM_LOOT_WEIGHTS: { id: string; weight: number }[] = Object.values(POWERUPS).map(p => ({
+  id: p.id,
+  weight: (p.price ?? 999) <= 100 ? 8 : (p.price ?? 999) <= 200 ? 5 : (p.price ?? 999) <= 300 ? 3 : (p.price ?? 999) <= 400 ? 2 : 1,
+}));
 
 export const DAILY_STREAK_REWARDS: StreakReward[] = [
   { type: 'coins', amount: 50 },                              // Day 1
@@ -317,21 +344,39 @@ export const GAME_MODES: Record<GameMode, GameModeConfig> = {
   },
   premium: {
     label: 'Premium',
-    description: 'The ultimate challenge. Complex mazes and elite rewards.',
+    description: 'Gouden doolhof. 1 minuut. Verzamel zoveel mogelijk items.',
     baseSize: 21,
-    timeLimit: null,
-    color: 'text-purple-500',
+    timeLimit: 60,
+    color: 'text-yellow-400',
     branchingFactor: 0.05,
     price: 500
   },
   hard: {
     label: 'Hard',
-    description: 'For those who want a real challenge.',
+    description: '1 leven. Fog of war. Een jager loert in het donker.',
     baseSize: 25,
-    timeLimit: 45,
+    timeLimit: null,
     color: 'text-red-500',
-    branchingFactor: 0.4
+    branchingFactor: 0.4,
+    fogOfWar: true,
   }
+};
+
+// Hard mode: villain start interval in ms — elke level 0.1% sneller vanaf level 20
+export const VILLAIN_BASE_INTERVAL = 800;
+
+// Hard mode: exclusieve mijlpaal-beloningen per sector (1-geïndexeerd)
+export const HARD_MILESTONES: Record<number, { coins: number; powerupId: string }> = {
+  10:  { coins: 500,   powerupId: 'ghost' },
+  20:  { coins: 1000,  powerupId: 'magnet' },
+  30:  { coins: 2000,  powerupId: 'freeze' },
+  40:  { coins: 3000,  powerupId: 'teleport' },
+  50:  { coins: 5000,  powerupId: 'jumpPro' },
+  60:  { coins: 3000,  powerupId: 'ghost' },
+  70:  { coins: 4000,  powerupId: 'magnet' },
+  80:  { coins: 5000,  powerupId: 'freeze' },
+  90:  { coins: 6000,  powerupId: 'teleport' },
+  100: { coins: 10000, powerupId: 'magnet' },
 };
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -389,27 +434,27 @@ export const ACHIEVEMENTS: Achievement[] = [
 export const THEMES: Record<ThemeType, ThemeConfig> = {
   default: {
     label: 'Classic',
-    wallColor: 'bg-zinc-900',
-    wallGradient: 'from-zinc-700 to-zinc-900',
-    pathColor: 'bg-zinc-950',
-    playerColor: 'bg-cyan-400',
+    wallColor: 'bg-slate-900',
+    wallGradient: 'from-slate-600 to-slate-900',
+    pathColor: 'bg-indigo-950',
+    playerColor: 'bg-violet-400',
     exitColor: 'bg-amber-500',
-    exitCoreColor: 'bg-amber-400',
-    ambientColor: 'rgba(0,0,0,0.8)',
-    trailColor: 'bg-cyan-400/20',
-    glowColor: 'rgba(34,211,238,0.6)',
-    bgClass: 'bg-black',
-    borderClass: 'border-zinc-800',
-    pathGlow: '#22d3ee',
-    wallTexture: 'bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.05)_1px,_transparent_1px)] bg-[length:8px_8px]',
+    exitCoreColor: 'bg-amber-300',
+    ambientColor: 'rgba(6,4,15,0.85)',
+    trailColor: 'bg-violet-400/20',
+    glowColor: 'rgba(139,92,246,0.65)',
+    bgClass: 'dungeon-bg',
+    borderClass: 'border-violet-900',
+    pathGlow: '#7c3aed',
+    wallTexture: 'bg-[linear-gradient(45deg,_rgba(0,0,0,0.15)_25%,_transparent_25%,_transparent_50%,_rgba(0,0,0,0.15)_50%,_rgba(0,0,0,0.15)_75%,_transparent_75%,_transparent)] bg-[length:6px_6px]',
     price: 0,
-    puzzleActive: 'bg-cyan-500 border-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.8)]',
-    puzzleInactive: 'bg-zinc-800 border-zinc-600',
-    hazardColor: 'text-red-500',
-    hazardSecondary: 'rgba(239,68,68,0.5)',
-    doorColor: 'bg-zinc-800 border-zinc-600',
-    doorAccent: 'bg-zinc-600',
-    gasColor: 'bg-red-500/20',
+    puzzleActive: 'bg-violet-600 border-violet-300 shadow-[0_0_10px_rgba(139,92,246,0.8)]',
+    puzzleInactive: 'bg-slate-800 border-slate-600',
+    hazardColor: 'text-rose-500',
+    hazardSecondary: 'rgba(244,63,94,0.5)',
+    doorColor: 'bg-slate-800 border-slate-600',
+    doorAccent: 'bg-violet-700',
+    gasColor: 'bg-rose-500/20',
   },
   cyberpunk: {
     label: 'Cyberpunk Neon',

@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import {
-  GameMode, GameState, PowerupState, ActiveModifier, StreakReward, DailyChallengeConfig,
+  GameMode, GameState, ActiveModifier, StreakReward, DailyChallengeConfig,
 } from '../types';
 import { DAILY_MODIFIERS, MILESTONE_BONUSES, DAILY_STREAK_REWARDS } from '../constants';
 import {
@@ -29,7 +29,7 @@ interface UseDailyChallengeProps {
   setLastStreakTimestamp: (v: number) => void;
   setLastDailyCompleted: (v: string | null) => void;
   setCoins: (fn: (prev: number) => number) => void;
-  setActivePowerups: (fn: (prev: PowerupState) => PowerupState) => void;
+  setPowerupInventory: (fn: (prev: Record<string, number>) => Record<string, number>) => void;
   setStreakReward: (reward: StreakReward | null) => void;
   setIsDailyChallenge: (v: boolean) => void;
   setActiveModifier: (v: ActiveModifier | null) => void;
@@ -48,17 +48,13 @@ interface UseDailyChallengeProps {
 const applyReward = (
   reward: StreakReward,
   setCoins: (fn: (prev: number) => number) => void,
-  setActivePowerups: (fn: (prev: PowerupState) => PowerupState) => void,
+  setPowerupInventory: (fn: (prev: Record<string, number>) => Record<string, number>) => void,
 ) => {
   if (reward.type === 'coins') {
     setCoins((prev) => Math.min(9999, prev + reward.amount));
   } else if (reward.type === 'powerup' && reward.powerupId) {
-    const id = reward.powerupId;
-    setActivePowerups((prev) => {
-      const val = prev[id];
-      if (typeof val === 'boolean') return { ...prev, [id]: true };
-      return { ...prev, [id]: Math.min(99, (val as number) + 1) };
-    });
+    const id = reward.powerupId as string;
+    setPowerupInventory((prev) => ({ ...prev, [id]: Math.min(99, (prev[id] || 0) + 1) }));
   }
 };
 
@@ -66,7 +62,7 @@ export const useDailyChallenge = ({
   streakCount, lastStreakTimestamp, lastDailyCompleted, coins,
   gameState, isDailyChallenge,
   setStreakCount, setLastStreakTimestamp, setLastDailyCompleted,
-  setCoins, setActivePowerups, setStreakReward,
+  setCoins, setPowerupInventory, setStreakReward,
   setIsDailyChallenge, setActiveModifier, setUnlockedGameModes, setGameMode,
   startLevel, playSound,
 }: UseDailyChallengeProps) => {
@@ -118,7 +114,7 @@ export const useDailyChallenge = ({
     // Regular daily reward
     const rewardIdx = (newStreak - 1) % DAILY_STREAK_REWARDS.length;
     const reward    = DAILY_STREAK_REWARDS[rewardIdx];
-    applyReward(reward, setCoins, setActivePowerups);
+    applyReward(reward, setCoins, setPowerupInventory);
     setStreakReward(reward);
     playSound(1500, 'sine', 0.5, 0.2);
     setTimeout(() => setStreakReward(null), 4000);
@@ -128,12 +124,8 @@ export const useDailyChallenge = ({
     if (milestoneBonus) {
       setTimeout(() => {
         setCoins((prev) => Math.min(9999, prev + milestoneBonus.coins));
-        const id = milestoneBonus.powerupId;
-        setActivePowerups((prev) => {
-          const val = prev[id];
-          if (typeof val === 'boolean') return { ...prev, [id]: true };
-          return { ...prev, [id]: Math.min(99, (val as number) + 1) };
-        });
+        const id = milestoneBonus.powerupId as string;
+        setPowerupInventory((prev) => ({ ...prev, [id]: Math.min(99, (prev[id] || 0) + 1) }));
         setStreakReward({ type: 'milestone', amount: milestoneBonus.coins, powerupId: milestoneBonus.powerupId });
         playSound(1800, 'sine', 0.6, 0.3);
         setTimeout(() => setStreakReward(null), 4000);

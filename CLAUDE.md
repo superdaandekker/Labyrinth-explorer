@@ -1,7 +1,9 @@
 # Labyrinth Explorer — Claude regels
 
-## Beschermde systemen (nooit aanpassen tenzij expliciet gevraagd)
-spelerbeweging · maze generation · collision · save/load · audio · achievements · coin spawning · shop · economy (powerupInventory · buyPowerup · activatePowerup)
+## Bevroren bestanden (NOOIT aanpassen — ook niet indirect)
+`hooks/useGameLogic.ts` · `utils/mazeGenerator.ts` · `hooks/useSaveLoad.ts` · `audio/audioManager.ts` · `hooks/useAudio.ts` · `hooks/useShop.ts` · `hooks/useScore.ts` · `hooks/useLeaderboard.ts` · `hooks/usePlayerAnim.ts`
+
+Bevat: spelerbeweging · maze generation · collision · save/load · audio · achievements · coin spawning · shop · economy
 
 ## Bestandsmap (lees alleen wat de taak raakt)
 | Systeem | Bestand(en) |
@@ -29,10 +31,13 @@ spelerbeweging · maze generation · collision · save/load · audio · achievem
 1. Lees **alleen** de bestanden uit de bestandsmap die de taak raakt (max 2-3) — geen README tenzij expliciet gevraagd
 2. Zoek bestaande logica → hergebruik, of leg uit waarom niet
 3. Plan (max 5 bullets): welke files, welke impact
-4. **Wacht op GO — geen code voor GO**
+4. Declareer expliciet:
+   - **RAAK:** `[bestand1, bestand2]` ← alleen deze worden gewijzigd
+   - **RAAK NIET:** alle overige bestanden
+5. **Wacht op GO — geen code voor GO**
 
 ## Na GO
-5. Implementeer — alleen noodzakelijke bestanden, geen scope-uitbreiding
+5. Implementeer — **uitsluitend** de bestanden uit de RAAK-lijst, geen scope-uitbreiding
 6. Self-check: Syntax · TypeScript · Imports · Logica · Side effects — elk ✅/❌ + fix
 7. Regressie-check: beschermde systemen ✅/❌
 8. Fix issues direct

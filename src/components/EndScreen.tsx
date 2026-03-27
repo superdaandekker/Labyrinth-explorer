@@ -1,7 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Skull, RotateCcw, Trophy, ChevronRight, Zap } from 'lucide-react';
+import { Skull, RotateCcw, Trophy, ChevronRight, Zap, Tv } from 'lucide-react';
 import { formatTime } from '../utils/formatTime';
+import { REVIVE_COST } from '../constants';
+import { GameMode } from '../types';
 
 interface EndScreenProps {
   gameState: 'won' | 'complete' | 'gameover';
@@ -16,6 +18,9 @@ interface EndScreenProps {
   startLevel: (level: number) => void;
   restartGame: () => void;
   nextLevel: () => void;
+  gameMode?: GameMode;
+  adReviveCount?: number;
+  onWatchAdRevive?: () => void;
 }
 
 const containerVariants = {
@@ -33,7 +38,8 @@ const itemVariants = {
 
 const EndScreen: React.FC<EndScreenProps> = ({
   gameState, playerHealth, currentLevel, elapsedTime, moves, coins,
-  score, rank, revive, startLevel, restartGame, nextLevel
+  score, rank, revive, startLevel, restartGame, nextLevel,
+  gameMode, adReviveCount = 0, onWatchAdRevive,
 }) => {
   const isWin = gameState === 'won' || gameState === 'complete';
 
@@ -101,14 +107,29 @@ const EndScreen: React.FC<EndScreenProps> = ({
 
       {gameState === 'gameover' ? (
         <motion.div variants={itemVariants} className="flex flex-col gap-2 sm:gap-3 w-full">
-          {coins >= 75 && (
-            <button
-              onClick={revive}
-              className="w-full py-3 sm:py-4 bg-amber-400 text-black font-bold rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-amber-400/20 text-sm sm:text-base"
-            >
-              <Zap size={18} fill="currentColor" />
-              REVIVE (75 COINS)
-            </button>
+          {/* Hard mode: revive via ads (3×) of echt geld — geen coin-revive */}
+          {gameMode === 'hard' ? (
+            <>
+              {onWatchAdRevive && (
+                <button
+                  onClick={onWatchAdRevive}
+                  className="w-full py-3 sm:py-4 bg-gradient-to-r from-red-600 to-rose-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-red-500/30 text-sm sm:text-base"
+                >
+                  <Tv size={18} />
+                  WATCH AD ({adReviveCount}/3) — FREE REVIVE
+                </button>
+              )}
+            </>
+          ) : (
+            coins >= REVIVE_COST && (
+              <button
+                onClick={revive}
+                className="w-full py-3 sm:py-4 bg-amber-400 text-black font-bold rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-amber-400/20 text-sm sm:text-base"
+              >
+                <Zap size={18} fill="currentColor" />
+                REVIVE ({REVIVE_COST} COINS)
+              </button>
+            )
           )}
           <button
             onClick={() => startLevel(currentLevel)}
