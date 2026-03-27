@@ -91,7 +91,8 @@ export const generateMaze = (
   height: number,
   seed?: number,
   levelIdx: number = 0,
-  gameMode: GameMode = 'normal'
+  gameMode: GameMode = 'normal',
+  retryCount: number = 0
 ): MazeData => {
   const newMaze = Array(height).fill(null).map(() => Array(width).fill(WALL));
   let currentSeed = seed !== undefined ? seed : Math.random();
@@ -443,7 +444,13 @@ export const generateMaze = (
     }
   }
 
-  return { maze: newMaze, playerPos, exitPos, breakableWallsHealth, puzzleState };
+  const result = { maze: newMaze, playerPos, exitPos, breakableWallsHealth, puzzleState };
+  if (validateMaze(result.maze, result.playerPos, result.exitPos) || retryCount >= 5) {
+    return result;
+  }
+
+  const nextSeed = seed !== undefined ? seed + retryCount + 1 : undefined;
+  return generateMaze(width, height, nextSeed, levelIdx, gameMode, retryCount + 1);
 };
 
 export default generateMaze;

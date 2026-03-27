@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { GameMode, GameState, PowerupState, ActiveModifier, Point, TrailPoint, DailyChallengeConfig } from '../types';
-import { GAME_MODES, ACHIEVEMENTS, ILLUSIONARY_WALL, WALL } from '../constants';
+import { GAME_MODES, ACHIEVEMENTS, ILLUSIONARY_WALL, WALL, DAILY_MODIFIERS } from '../constants';
+import { getDailyModifierIndex } from '../utils/dailyChallenge';
 import generateMaze, { findPath, seededRandom } from '../utils/mazeGenerator';
 import { audioManager } from '../audio/audioManager';
 
@@ -188,7 +189,7 @@ export const useGameLogic = ({
       setActiveModifier(modifier);
       setUnlockedGameModes((prev) => prev.includes('hard') ? prev : [...prev, 'hard']);
       setGameMode('hard');
-      startLevel(0, false, modifier);
+      startLevel(0, false, modifier, { gameMode: 'hard' });
     },
     [setIsDailyChallenge, setActiveModifier, setUnlockedGameModes, setGameMode, startLevel]
   );

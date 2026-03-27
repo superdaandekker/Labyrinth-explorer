@@ -101,13 +101,14 @@ Je voortgang wordt automatisch bijgehouden zodat je later verder kunt spelen:
 
 ## 🗺️ Roadmap
 
-Plannen voor toekomstige updates:
+Optimalisaties voor bestaande onderdelen:
 - [x] **HTML Title:** De HTML-titel is ingesteld op 'Labyrinth Explorer'.
 - [x] **Meta Tags:** SEO en Open Graph meta-tags toegevoegd aan `index.html`.
 - [x] **Package Name:** Projectnaam in `package.json` bijgewerkt naar `labyrinth-explorer`.
 - [x] **Dependency Cleanup:** Ongebruikte pakketten (`@google/genai`, `express`, `dotenv`, `tsx`) verwijderd.
-- [ ] **Online Leaderboards:** Vergelijk je tijden met spelers wereldwijd.
-- [ ] **Multiplayer Race:** Race in real-time tegen een vriend door hetzelfde doolhof.
-- [ ] **Nieuwe Hazards:** Bewegende vijanden en vallende objecten.
-- [ ] **Level Editor:** Bouw en deel je eigen doolhoven.
-- [ ] **Mobiele App:** Native versies voor iOS en Android.
+- [x] **MazeCell rendering:** `React.memo` toevoegen aan `MazeCell` zodat alleen gewijzigde cellen opnieuw renderen bij elke spelerstap.
+- [x] **MazeViewport:** Alleen cellen binnen de viewport berekenen en renderen (virtualisatie), zodat grote doolhoven geen onnodige DOM-nodes aanmaken.
+- [x] **App.tsx opsplitsen:** Villain-logica naar `useVillain` en resize-logica naar `useDynamicCellSize` geëxtraheerd; App.tsx ~70 regels kleiner.
+- [x] **Touch/mobiel:** Adaptieve swipe-threshold (~4% schermbreedte), richtings-flash bij elke geregistreerde swipe, en haptische feedback via `navigator.vibrate`.
+- [x] **Animaties:** Framer Motion-transities gefinetuned op `EndScreen` en `StartMenu`: consistente quint-out easing, softere rotateX, Trophy bounce bij win, uniforme 0.06s delay-stapgrootte in StartMenu.
+- [x] **Foutafhandeling:** `ErrorBoundary` uitgebreid met twee herstelknoppen ("Probeer opnieuw" + "Wis data & herlaad"), `componentStack` opgeslagen in state, en een uitklapbaar foutdetails-blok voor developers.

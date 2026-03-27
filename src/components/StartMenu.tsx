@@ -88,18 +88,18 @@ const StartMenu: React.FC<StartMenuProps> = ({
       {/* ── Title block ── */}
       <div className="text-center mb-8">
         <motion.div
-          initial={{ y: -30, opacity: 0 }}
+          initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.05 }}
+          transition={{ delay: 0.12, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="text-[9px] uppercase tracking-[0.45em] text-violet-400/50 font-bold mb-2"
         >
           ✦ abandon all hope, ye who enter ✦
         </motion.div>
 
         <motion.h1
-          initial={{ y: -15, opacity: 0, scale: 0.9 }}
+          initial={{ y: -12, opacity: 0, scale: 0.92 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+          transition={{ delay: 0.18, type: 'spring', stiffness: 220, damping: 22 }}
           className="title-liquid font-black italic leading-none select-none"
           style={{ fontSize: 'clamp(3.5rem, 16vw, 5.5rem)', letterSpacing: '-0.04em' }}
         >
@@ -109,14 +109,14 @@ const StartMenu: React.FC<StartMenuProps> = ({
         <motion.div
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ delay: 0.25, duration: 0.5 }}
+          transition={{ delay: 0.26, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent my-3"
         />
 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.32, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           className="text-violet-300/35 text-[11px] tracking-[0.15em] font-medium"
         >
           EXPLORER
@@ -127,7 +127,7 @@ const StartMenu: React.FC<StartMenuProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.18 }}
+        transition={{ delay: 0.38, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="flex items-center gap-2 px-4 py-2 glass rounded-full mb-6 shadow-violet-glow-sm"
       >
         <Coins size={13} className="text-amber-400" />
@@ -153,9 +153,9 @@ const StartMenu: React.FC<StartMenuProps> = ({
           >
             {/* ── PLAY — 3D extruded ── */}
             <motion.button
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.22 }}
+              transition={{ delay: 0.44, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
               onClick={() => setShowModeSelect(true)}
               className="relative w-full py-4 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 text-white font-black rounded-xl overflow-hidden btn-extrude text-sm tracking-[0.2em]"
             >
@@ -172,7 +172,7 @@ const StartMenu: React.FC<StartMenuProps> = ({
               <motion.button
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.27 }}
+                transition={{ delay: 0.50, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
                 onClick={loadSavedGame}
                 className="w-full py-3.5 glass rounded-xl card-3d text-white font-bold text-sm flex items-center justify-center gap-2 hover:border-violet-500/40 transition-colors"
               >
@@ -185,7 +185,7 @@ const StartMenu: React.FC<StartMenuProps> = ({
             <motion.button
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.32 }}
+              transition={{ delay: 0.56, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
               onClick={startDailyChallenge}
               disabled={dailyDone}
               className="relative w-full py-3.5 glass border border-amber-500/30 rounded-xl overflow-hidden card-3d hover:border-amber-500/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -211,7 +211,7 @@ const StartMenu: React.FC<StartMenuProps> = ({
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.38 }}
+              transition={{ delay: 0.62, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
               className="grid grid-cols-4 gap-2"
             >
               {[

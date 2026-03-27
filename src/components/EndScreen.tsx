@@ -24,16 +24,22 @@ interface EndScreenProps {
 }
 
 const containerVariants = {
-  hidden: { opacity: 0, scale: 0.8, y: 50, rotateX: 20 },
+  hidden: { opacity: 0, scale: 0.85, y: 24, rotateX: 8 },
   visible: {
     opacity: 1, scale: 1, y: 0, rotateX: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 25, staggerChildren: 0.1, delayChildren: 0.2 }
+    transition: { type: 'spring', stiffness: 260, damping: 28, staggerChildren: 0.08, delayChildren: 0.15 }
   }
 };
 
+// Quint-out easing voor consistente deceleration
+const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 }
+  hidden: { opacity: 0, y: 14 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { type: 'spring', stiffness: 280, damping: 26 }
+  }
 };
 
 const EndScreen: React.FC<EndScreenProps> = ({
@@ -49,7 +55,7 @@ const EndScreen: React.FC<EndScreenProps> = ({
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      exit={{ opacity: 0, y: -50, scale: 0.9, rotateX: -20 }}
+      exit={{ opacity: 0, y: -28, scale: 0.93, rotateX: -8, transition: { duration: 0.22, ease: EASE_OUT } }}
       className="z-10 text-center bg-zinc-900/80 backdrop-blur-xl p-6 sm:p-12 rounded-[2rem] border border-zinc-800 shadow-2xl max-w-sm mx-4"
     >
       <motion.div
@@ -62,7 +68,14 @@ const EndScreen: React.FC<EndScreenProps> = ({
       >
         {gameState === 'gameover'
           ? (playerHealth <= 0 ? <Skull size={32} className="text-white" /> : <RotateCcw size={32} className="text-white" />)
-          : <Trophy size={32} className="text-white" />}
+          : (
+            <motion.div
+              animate={{ scale: [0, 1.35, 0.85, 1.1, 1] }}
+              transition={{ delay: 0.45, duration: 0.55, ease: [0.36, 0.07, 0.19, 0.97] }}
+            >
+              <Trophy size={32} className="text-white" />
+            </motion.div>
+          )}
       </motion.div>
 
       <motion.h2 variants={itemVariants} className="text-2xl sm:text-3xl font-black italic mb-1 sm:mb-2 tracking-tight text-white">

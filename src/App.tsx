@@ -15,6 +15,8 @@ import { useLeaderboard } from './hooks/useLeaderboard';
 import { useUIState } from './hooks/useUIState';
 import { usePlayerAnim } from './hooks/usePlayerAnim';
 import { useDailyChallenge } from './hooks/useDailyChallenge';
+import { useDynamicCellSize } from './hooks/useDynamicCellSize';
+import { useVillain } from './hooks/useVillain';
 
 import TopBar from './components/TopBar';
 import StartMenu from './components/StartMenu';
@@ -100,10 +102,6 @@ export default function App() {
   const [premiumLootMap, setPremiumLootMap] = useState<Record<string, string>>({});
   const [premiumCollected, setPremiumCollected] = useState<Record<string, number>>({});
 
-  // Hard mode: villain
-  const [villainPos, setVillainPos] = useState<Point | null>(null);
-  const villainRef = useRef<Point | null>(null);
-
   // Hard mode: ad-revive teller (reset per level, 3 ads = gratis revive)
   const [adReviveCount, setAdReviveCount] = useState(0);
   const adReviveCountRef = useRef(0);
@@ -137,7 +135,6 @@ export default function App() {
     activePowerupsRef.current = activePowerups;
     powerupInventoryRef.current = powerupInventory;
   }, [playerPos, maze, gameState, puzzleState, isPaused, activePowerups, powerupInventory]);
-  useEffect(() => { villainRef.current = villainPos; }, [villainPos]);
   useEffect(() => { adReviveCountRef.current = adReviveCount; }, [adReviveCount]);
   useEffect(() => { localStorage.setItem('powerupInventory', JSON.stringify(powerupInventory)); }, [powerupInventory]);
   useEffect(() => {
@@ -222,20 +219,7 @@ export default function App() {
     }
   }, [currentLevel, gameState]);
 
-  const [dynamicCellSize, setDynamicCellSize] = useState(CELL_SIZE);
-  useEffect(() => {
-    const handleResize = () => {
-      if (gameState === 'playing' && maze.length > 0) {
-        const availableWidth = window.innerWidth - 32;
-        const availableHeight = window.innerHeight - 300;
-        const size = Math.floor(Math.min(availableWidth, availableHeight) / VIEWPORT_SIZE);
-        setDynamicCellSize(Math.min(60, Math.max(35, size)));
-      }
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [gameState, maze]);
+  const dynamicCellSize = useDynamicCellSize(gameState, maze.length);
 
   // IMP-002/003: Centrale tile-effect + damage functie — gebruikt door movePlayer, performJump en useTeleport
   const applyTileEffects = useCallback((x: number, y: number, cell: number) => {
@@ -278,15 +262,21 @@ export default function App() {
       setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
       playSound(600, 'square', 0.3);
     } else if (COLOR_KEY_PAIRS.some(([k]) => cell === k)) {
-      const [keyType] = COLOR_KEY_PAIRS.find(([k]) => cell === k)!;
-      setHeldColorKeys(prev => new Set([...prev, keyType]));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
-      playSound(1400, 'sine', 0.3);
+      const found = COLOR_KEY_PAIRS.find(([k]) => cell === k);
+      if (found) {
+        const [keyType] = found;
+        setHeldColorKeys(prev => new Set([...prev, keyType]));
+        setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+        playSound(1400, 'sine', 0.3);
+      }
     } else if (COLOR_KEY_PAIRS.some(([k, d]) => cell === d && heldColorKeys.has(k))) {
-      const [keyType] = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && heldColorKeys.has(k))!;
-      setHeldColorKeys(prev => { const next = new Set(prev); next.delete(keyType); return next; });
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
-      playSound(600, 'square', 0.3);
+      const found = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && heldColorKeys.has(k));
+      if (found) {
+        const [keyType] = found;
+        setHeldColorKeys(prev => { const next = new Set(prev); next.delete(keyType); return next; });
+        setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+        playSound(600, 'square', 0.3);
+      }
     } else if (cell === HIDDEN_BUTTON) {
       setPuzzleState((prev) => {
         const next = new Set(prev);
@@ -579,73 +569,12 @@ export default function App() {
   }, [activePowerups.magnet, playSound]);
 
 
-  // Hard mode: initialiseer slechterik bij niveau-start (level >= 20)
-  useEffect(() => {
-    if (gameMode !== 'hard' || currentLevel < 20 || gameState !== 'playing') {
-      setVillainPos(null);
-      villainRef.current = null;
-      return;
-    }
-    const m = mazeRef.current;
-    const p = playerPosRef.current;
-    const cells: Point[] = [];
-    for (let y = 1; y < m.length - 1; y++) {
-      for (let x = 1; x < m[0].length - 1; x++) {
-        if (m[y][x] !== WALL && Math.abs(x - p.x) + Math.abs(y - p.y) > 8)
-          cells.push({ x, y });
-      }
-    }
-    if (cells.length > 0) {
-      const spawn = cells[Math.floor(Math.random() * cells.length)];
-      setVillainPos(spawn);
-      villainRef.current = spawn;
-    }
-  }, [currentLevel, gameState, gameMode]);
-
-  // Hard mode: slechterik AI-loop — 0,1% sneller per level vanaf level 20
-  useEffect(() => {
-    if (gameMode !== 'hard' || currentLevel < 20 || gameState !== 'playing') return;
-    const levelsIn = Math.max(0, currentLevel - 20);
-    const interval = Math.round(VILLAIN_BASE_INTERVAL / (1 + levelsIn * 0.001));
-    const timer = setInterval(() => {
-      if (isPausedRef.current || gameStateRef.current !== 'playing') return;
-      const vp = villainRef.current;
-      if (!vp) return;
-      const player = playerPosRef.current;
-      const m = mazeRef.current;
-      const dist = Math.abs(vp.x - player.x) + Math.abs(vp.y - player.y);
-      if (dist <= 1) {
-        // BUG-041: freeze beschermt ook tegen villain-schade
-        if (activePowerupsRef.current.freeze > Date.now()) return;
-        setPlayerHealth(prev => {
-          const next = prev - 1;
-          if (next <= 0) setGameState('gameover');
-          return next;
-        });
-        setDamageFlash(true);
-        setTimeout(() => setDamageFlash(false), 200);
-        const cells: Point[] = [];
-        for (let y = 1; y < m.length - 1; y++) {
-          for (let x = 1; x < m[0].length - 1; x++) {
-            if (m[y][x] !== WALL && Math.abs(x - player.x) + Math.abs(y - player.y) > 8)
-              cells.push({ x, y });
-          }
-        }
-        if (cells.length > 0) {
-          const np = cells[Math.floor(Math.random() * cells.length)];
-          villainRef.current = np;
-          setVillainPos(np);
-        }
-        return;
-      }
-      const path = findPath(vp, player, m);
-      if (path.length > 1) {
-        villainRef.current = path[1];
-        setVillainPos(path[1]);
-      }
-    }, interval);
-    return () => clearInterval(timer);
-  }, [gameMode, currentLevel, gameState]);
+  // Hard mode: slechterik
+  const { villainPos, setVillainPos, villainRef } = useVillain({
+    gameMode, currentLevel, gameState, gameStateRef,
+    mazeRef, playerPosRef, isPausedRef, activePowerupsRef,
+    setPlayerHealth, setGameState, setDamageFlash,
+  });
 
   // BUG-004: Poison gas — schade over tijd terwijl speler op tegel staat (elke 1,5s)
   useEffect(() => {
@@ -736,7 +665,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [movePlayer, setIsPaused]);
+  }, [movePlayer]);
 
   useEffect(() => {
     if (gameState === 'playing' && !isPaused) {

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'motion/react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { ThemeType, Point, PowerupState, JoystickState, TrailPoint } from '../types';
@@ -35,7 +35,7 @@ interface MazeViewportProps {
   villainPos?: Point | null;
 }
 
-const MazeViewport: React.FC<MazeViewportProps> = ({
+const MazeViewport = React.memo(({
   theme, activePowerups, currentLevel, dynamicCellSize, playerPos,
   maze, puzzleState, breakableWallsHealth, isDoorOpen, visitedCells,
   isHintActive, hintPath, exitPos, playerTrail,
@@ -48,6 +48,15 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
   const swipeMovedRef = useRef(false);
   // BUG-029: joystick vuurt alleen bij richtingswisseling opnieuw onmiddellijk
   const joystickLastDirRef = useRef('');
+  // Swipe-richting feedback (300ms flash)
+  const [swipeFlash, setSwipeFlash] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
+  const swipeFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fireSwipeFlash = useCallback((dir: 'up' | 'down' | 'left' | 'right') => {
+    if (swipeFlashTimerRef.current) clearTimeout(swipeFlashTimerRef.current);
+    setSwipeFlash(dir);
+    swipeFlashTimerRef.current = setTimeout(() => setSwipeFlash(null), 300);
+  }, []);
 
   const handlePanStart = (_e: PointerEvent, info: PanInfo) => {
     swipeMovedRef.current = false;
@@ -67,19 +76,28 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
       setJoystick({ ...joystick, offsetX: limitedDx, offsetY: limitedDy });
       if (dist > 20) {
         const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u');
-        // Sla richting op; movePlayer-throttle regelt frequentie van herhaalde moves
         joystickLastDirRef.current = dir;
         if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
         else movePlayer(0, dy > 0 ? 1 : -1);
+        navigator.vibrate?.(8);
       } else {
         joystickLastDirRef.current = '';
       }
     } else if (controlScheme === 'swipe') {
       if (swipeMovedRef.current) return; // BUG-030: blokkeer verdere moves in zelfde gesture
-      const threshold = 30;
+      // Adaptieve threshold: ~4% schermbreedте, minimaal 20px
+      const threshold = Math.max(20, window.innerWidth * 0.04);
       if (Math.abs(info.offset.x) > threshold || Math.abs(info.offset.y) > threshold) {
-        if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) movePlayer(info.offset.x > 0 ? 1 : -1, 0);
-        else movePlayer(0, info.offset.y > 0 ? 1 : -1);
+        if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) {
+          const dir = info.offset.x > 0 ? 'right' : 'left';
+          movePlayer(info.offset.x > 0 ? 1 : -1, 0);
+          fireSwipeFlash(dir);
+        } else {
+          const dir = info.offset.y > 0 ? 'down' : 'up';
+          movePlayer(0, info.offset.y > 0 ? 1 : -1);
+          fireSwipeFlash(dir);
+        }
+        navigator.vibrate?.(12);
         swipeMovedRef.current = true;
       }
     }
@@ -90,6 +108,15 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
     swipeMovedRef.current = false;
     joystickLastDirRef.current = '';
   };
+
+  // Virtualisatie: alleen cellen binnen viewport + 1-cel buffer renderen
+  const cols = maze[0]?.length ?? 0;
+  const rows = maze.length;
+  const half = Math.floor(VIEWPORT_SIZE / 2);
+  const startX = Math.max(0, playerPos.x - half - 1);
+  const endX = Math.min(cols - 1, playerPos.x + half + 1);
+  const startY = Math.max(0, playerPos.y - half - 1);
+  const endY = Math.min(rows - 1, playerPos.y + half + 1);
 
   return (
     <motion.div
@@ -136,18 +163,24 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
           style={{ rotateX: 14, transformStyle: 'preserve-3d' }}
           className="absolute"
         >
-          {maze.map((row, y) => (
-            <div key={y} className="flex">
-              {row.map((cell, x) => (
-                <MazeCell
-                  key={`${x}-${y}`} x={x} y={y} cell={cell} theme={theme}
-                  dynamicCellSize={dynamicCellSize} puzzleState={puzzleState}
-                  breakableWallsHealth={breakableWallsHealth} isDoorOpen={isDoorOpen}
-                  visitedCells={visitedCells}
-                />
-              ))}
-            </div>
-          ))}
+          <div className="relative" style={{ width: cols * dynamicCellSize, height: rows * dynamicCellSize }}>
+            {maze.slice(startY, endY + 1).flatMap((row, relY) => {
+              const y = startY + relY;
+              return row.slice(startX, endX + 1).map((cell, relX) => {
+                const x = startX + relX;
+                return (
+                  <div key={`${x}-${y}`} className="absolute" style={{ left: x * dynamicCellSize, top: y * dynamicCellSize }}>
+                    <MazeCell
+                      x={x} y={y} cell={cell} theme={theme}
+                      dynamicCellSize={dynamicCellSize} puzzleState={puzzleState}
+                      breakableWallsHealth={breakableWallsHealth} isDoorOpen={isDoorOpen}
+                      visitedCells={visitedCells}
+                    />
+                  </div>
+                );
+              });
+            })}
+          </div>
 
           <AnimatePresence>
             {isHintActive && hintPath.map((p, i) => (
@@ -310,6 +343,27 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
         </motion.div>
       </AnimatePresence>
 
+      {/* Swipe-richting flash — bevestigt geregistreerde swipe */}
+      <AnimatePresence>
+        {swipeFlash && (
+          <motion.div
+            key={swipeFlash}
+            initial={{ opacity: 0.7, scale: 0.6 }}
+            animate={{ opacity: 0, scale: 1.4 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
+            className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+          >
+            <div className="text-white/70 drop-shadow-lg">
+              {swipeFlash === 'up' && <ArrowUp size={48} strokeWidth={3} />}
+              {swipeFlash === 'down' && <ArrowDown size={48} strokeWidth={3} />}
+              {swipeFlash === 'left' && <ArrowLeft size={48} strokeWidth={3} />}
+              {swipeFlash === 'right' && <ArrowRight size={48} strokeWidth={3} />}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {joystick && joystick.active && (
           <motion.div
@@ -362,6 +416,6 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
       </AnimatePresence>
     </motion.div>
   );
-};
+}) as React.FC<MazeViewportProps>;
 
 export default MazeViewport;
