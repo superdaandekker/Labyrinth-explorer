@@ -1,26 +1,83 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  X, ShoppingBag, Coins, Zap, Shield, Map, Palette, Eye, Sparkles, ChevronsUp, Crosshair,
+  X, ShoppingBag, Coins, Zap, Shield, Map, Palette, Sparkles, ChevronsUp, Crosshair,
   Ghost, Magnet, Snowflake, Navigation, Lock
 } from 'lucide-react';
-import { THEMES, POWERUPS } from '../../constants';
+import { SkinConfig, SkinType } from '../../types';
+import { THEMES, SKINS, POWERUPS } from '../../constants';
 
 interface ShopModalProps {
   showShop: boolean;
   setShowShop: (show: boolean) => void;
   coins: number;
-  shopCategory: 'all' | 'themes' | 'powerups' | 'coins';
-  setShopCategory: (cat: 'all' | 'themes' | 'powerups' | 'coins') => void;
+  shopCategory: 'all' | 'themes' | 'skins' | 'powerups' | 'coins';
+  setShopCategory: (cat: 'all' | 'themes' | 'skins' | 'powerups' | 'coins') => void;
   shopSort: 'name' | 'price';
   setShopSort: (sort: 'name' | 'price') => void;
   unlockedThemes: string[];
+  selectedSkin: SkinType;
+  unlockedSkins: SkinType[];
   buyTheme: (themeId: string, price: number) => void;
   buyPowerup: (powerupId: string, price: number) => void;
+  buySkin: (skinId: SkinType) => void;
   buyCoins: (amount: number, price: number) => void;
   currentLevel: number;
   powerupInventory: Record<string, number>;
 }
+
+const renderSkinPreview = (skin: SkinConfig, skinId: SkinType) => {
+  const outline = `1.5px solid ${skin.outlineColor}`;
+
+  if (skinId === 'knight') {
+    return (
+      <div className="relative w-10 h-10">
+        <div className="absolute left-[18%] right-[18%] top-[10%] h-[28%] rounded-[28%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[28%] right-[28%] top-[19%] h-[6%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute left-[17%] right-[17%] top-[42%] h-[25%] rounded-[24%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+      </div>
+    );
+  }
+
+  if (skinId === 'rogue') {
+    return (
+      <div className="relative w-10 h-10">
+        <div className="absolute left-[20%] right-[20%] top-[10%] h-[30%] rounded-[40%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[28%] right-[28%] top-[22%] h-[8%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute left-[22%] right-[22%] top-[42%] h-[28%] rounded-[34%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+      </div>
+    );
+  }
+
+  if (skinId === 'mech') {
+    return (
+      <div className="relative w-10 h-10">
+        <div className="absolute left-[23%] right-[23%] top-[12%] h-[24%] rounded-[20%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[20%] right-[20%] top-[42%] h-[26%] rounded-[18%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[31%] right-[31%] top-[49%] h-[9%] rounded-md" style={{ backgroundColor: skin.detailColor }} />
+      </div>
+    );
+  }
+
+  if (skinId === 'mage') {
+    return (
+      <div className="relative w-10 h-10">
+        <div className="absolute left-[26%] right-[26%] top-[2%] h-[18%]" style={{ backgroundColor: skin.baseColor, clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)' }} />
+        <div className="absolute left-[20%] right-[20%] top-[18%] h-[5%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+        <div className="absolute left-[23%] right-[23%] top-[22%] h-[22%] rounded-full" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[17%] right-[17%] top-[44%] h-[32%]" style={{ backgroundColor: skin.baseColor, clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-10 h-10">
+      <div className="absolute left-[24%] right-[24%] top-[12%] h-[24%] rounded-full" style={{ backgroundColor: skin.baseColor, border: outline }} />
+      <div className="absolute left-[22%] right-[22%] top-[42%] h-[28%] rounded-[34%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+      <div className="absolute left-[18%] right-[18%] top-[49%] h-[6%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+    </div>
+  );
+};
 
 const ShopModal: React.FC<ShopModalProps> = ({
   showShop,
@@ -31,8 +88,11 @@ const ShopModal: React.FC<ShopModalProps> = ({
   shopSort,
   setShopSort,
   unlockedThemes,
+  selectedSkin,
+  unlockedSkins,
   buyTheme,
   buyPowerup,
+  buySkin,
   buyCoins,
   currentLevel,
   powerupInventory,
@@ -49,6 +109,12 @@ const ShopModal: React.FC<ShopModalProps> = ({
       if (shopSort === 'name') return a[1].name.localeCompare(b[1].name);
       return a[1].price - b[1].price;
     });
+
+  const sortedSkins = Object.entries(SKINS)
+    .sort((a, b) => {
+      if (shopSort === 'name') return a[1].label.localeCompare(b[1].label);
+      return a[1].price - b[1].price;
+    }) as [SkinType, SkinConfig][];
 
   return (
     <AnimatePresence>
@@ -92,7 +158,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
             {/* Filters and Sorting */}
             <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
               <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl overflow-x-auto custom-scrollbar no-scrollbar">
-                {(['all', 'themes', 'powerups', 'coins'] as const).map((cat) => (
+                {(['all', 'themes', 'skins', 'powerups', 'coins'] as const).map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setShopCategory(cat)}
@@ -212,6 +278,57 @@ const ShopModal: React.FC<ShopModalProps> = ({
                             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-lg text-amber-500 font-mono font-bold text-sm">
                               <Coins size={14} />
                               {themeData.price}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {(shopCategory === 'all' || shopCategory === 'skins') && (
+                <div className="space-y-4">
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-black">Skins</div>
+                  <div className="grid gap-3">
+                    {sortedSkins.map(([id, skin]) => {
+                      const isUnlocked = unlockedSkins.includes(id);
+                      const isEquipped = selectedSkin === id;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => buySkin(id)}
+                          disabled={!isUnlocked && coins < skin.price}
+                          className={`flex items-center justify-between p-4 bg-zinc-900/50 border rounded-2xl transition-all group ${
+                            isEquipped
+                              ? 'border-cyan-400/60 bg-cyan-500/10'
+                              : 'border-zinc-800'
+                          } ${!isUnlocked && coins < skin.price ? 'opacity-50' : 'hover:bg-zinc-800/80'}`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div
+                              className="w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
+                              style={{ backgroundColor: `${skin.baseColor}22`, border: `1px solid ${skin.outlineColor}` }}
+                            >
+                              {renderSkinPreview(skin, id)}
+                            </div>
+                            <div className="text-left">
+                              <div className="font-bold text-white">{skin.label}</div>
+                              <div className="text-[10px] text-zinc-500 uppercase tracking-widest">{skin.description}</div>
+                            </div>
+                          </div>
+                          {isEquipped ? (
+                            <div className="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest text-cyan-300 bg-cyan-500/10">
+                              Equipped
+                            </div>
+                          ) : isUnlocked ? (
+                            <div className="px-3 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-widest text-emerald-400 bg-emerald-500/10">
+                              Equip
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-lg text-amber-500 font-mono font-bold text-sm">
+                              <Coins size={14} />
+                              {skin.price}
                             </div>
                           )}
                         </button>

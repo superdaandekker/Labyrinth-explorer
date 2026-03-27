@@ -10,6 +10,15 @@ export const seededRandom = (seed: number) => {
   return x - Math.floor(x);
 };
 
+const MAX_GENERATION_RETRIES = 5;
+const COLOR_KEY_PAIRS: [number, number][] = [
+  [KEY, KEY_DOOR],
+  [KEY_BLUE, KEY_DOOR_BLUE],
+  [KEY_GREEN, KEY_DOOR_GREEN],
+  [KEY_YELLOW, KEY_DOOR_YELLOW],
+  [KEY_PURPLE, KEY_DOOR_PURPLE],
+];
+
 // IMP-008: centrale walkability helper — walkDoors=false voor hints (BUG-011), true voor generatie
 const WALKABLE_ALWAYS = new Set([
   PATH, COIN, KEY, KEY_BLUE, KEY_GREEN, KEY_YELLOW, KEY_PURPLE,
@@ -58,8 +67,70 @@ export const findPath = (
 };
 
 // FEAT-006: maze-validatie — controleert of speler het uitgang kan bereiken
+const getReachableCells = (
+  maze: number[][],
+  start: Point,
+  blockedTypes: number[] = []
+): Set<string> => {
+  const reachable = new Set<string>();
+  const queue: Point[] = [{ ...start }];
+  reachable.add(`${start.x},${start.y}`);
+
+  while (queue.length > 0) {
+    const { x, y } = queue.shift()!;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const key = `${nx},${ny}`;
+      if (reachable.has(key)) continue;
+      if (nx < 0 || nx >= maze[0].length || ny < 0 || ny >= maze.length) continue;
+      const cell = maze[ny][nx];
+      if (cell === WALL || blockedTypes.includes(cell)) continue;
+      reachable.add(key);
+      queue.push({ x: nx, y: ny });
+    }
+  }
+
+  return reachable;
+};
+
+const validateKeyDoorChain = (maze: number[][], playerPos: Point): boolean => {
+  const placedPairs = COLOR_KEY_PAIRS.filter(([keyType, doorType]) =>
+    maze.some((row) => row.includes(keyType)) || maze.some((row) => row.includes(doorType))
+  );
+  if (placedPairs.length === 0) return true;
+
+  const allDoorTypes = placedPairs.map(([, doorType]) => doorType);
+  for (let i = 0; i < placedPairs.length; i++) {
+    const [keyType] = placedPairs[i];
+    const reachable = getReachableCells(maze, playerPos, allDoorTypes.slice(i));
+    const canReachKey = maze.some((row, y) =>
+      row.some((cell, x) => cell === keyType && reachable.has(`${x},${y}`))
+    );
+    if (!canReachKey) return false;
+  }
+
+  return true;
+};
+
+export interface MazeValidation {
+  hasReachableExit: boolean;
+  hasSolvableKeyDoors: boolean;
+  isValid: boolean;
+}
+
+export const getMazeValidation = (maze: number[][], playerPos: Point, exitPos: Point): MazeValidation => {
+  const hasReachableExit = findPath(playerPos, exitPos, maze, { walkDoors: true }).length > 0;
+  const hasSolvableKeyDoors = validateKeyDoorChain(maze, playerPos);
+  return {
+    hasReachableExit,
+    hasSolvableKeyDoors,
+    isValid: hasReachableExit && hasSolvableKeyDoors,
+  };
+};
+
 export const validateMaze = (maze: number[][], playerPos: Point, exitPos: Point): boolean =>
-  findPath(playerPos, exitPos, maze, { walkDoors: true }).length > 0;
+  getMazeValidation(maze, playerPos, exitPos).isValid;
 
 export interface MazeData {
   maze: number[][];
@@ -375,20 +446,12 @@ export const generateMaze = (
   const keyThreshold = getThreshold(10, gameMode);
   if (levelIdx >= keyThreshold) {
     const doorCount = Math.min(5, 1 + Math.floor((levelIdx - keyThreshold) / 15));
-    const colorPairs: [number, number][] = [
-      [KEY, KEY_DOOR],
-      [KEY_BLUE, KEY_DOOR_BLUE],
-      [KEY_GREEN, KEY_DOOR_GREEN],
-      [KEY_YELLOW, KEY_DOOR_YELLOW],
-      [KEY_PURPLE, KEY_DOOR_PURPLE],
-    ];
-
     const mainPath = findPath(playerPos, exitPos, newMaze, { walkDoors: true });
     if (mainPath.length > doorCount * 6) {
       // Stap 1: deuren op evenredige posities op het hoofdpad
       const doorPositions: (Point | null)[] = [];
       for (let d = 0; d < doorCount; d++) {
-        const [, doorType] = colorPairs[d];
+        const [, doorType] = COLOR_KEY_PAIRS[d];
         const frac = doorCount === 1 ? 0.65 : 0.4 + (d / (doorCount - 1)) * 0.4;
         const doorIdx = Math.min(Math.floor(mainPath.length * frac), mainPath.length - 2);
         const doorPos = mainPath[doorIdx];
@@ -401,31 +464,14 @@ export const generateMaze = (
       }
 
       // BFS helper — bereikbare cellen met opgegeven deur-types als muren
-      const getReachable = (blockedTypes: number[]): Set<string> => {
-        const reachable = new Set<string>();
-        const queue: Point[] = [{ ...playerPos }];
-        reachable.add(`${playerPos.x},${playerPos.y}`);
-        while (queue.length > 0) {
-          const { x, y } = queue.shift()!;
-          for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-            const nx = x + ddx, ny = y + ddy;
-            const k = `${nx},${ny}`;
-            if (reachable.has(k)) continue;
-            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-            const c = newMaze[ny][nx];
-            if (c === WALL || blockedTypes.includes(c)) continue;
-            reachable.add(k);
-            queue.push({ x: nx, y: ny });
-          }
-        }
-        return reachable;
-      };
+      const getReachable = (blockedTypes: number[]): Set<string> =>
+        getReachableCells(newMaze, playerPos, blockedTypes);
 
       // Stap 2: sleutels plaatsen — sleutel d bereikbaar als deuren 0..d-1 al open zijn
-      const allDoorTypes = colorPairs.slice(0, doorCount).map(([, dt]) => dt);
+      const allDoorTypes = COLOR_KEY_PAIRS.slice(0, doorCount).map(([, dt]) => dt);
       for (let d = 0; d < doorCount; d++) {
         if (!doorPositions[d]) continue;
-        const [keyType] = colorPairs[d];
+        const [keyType] = COLOR_KEY_PAIRS[d];
         // BFS met deuren d..doorCount-1 geblokkeerd (eerder geopende deuren zijn passeerbaar)
         const reachable = getReachable(allDoorTypes.slice(d));
         let keyPos: Point | null = null;
@@ -445,7 +491,8 @@ export const generateMaze = (
   }
 
   const result = { maze: newMaze, playerPos, exitPos, breakableWallsHealth, puzzleState };
-  if (validateMaze(result.maze, result.playerPos, result.exitPos) || retryCount >= 5) {
+  const validation = getMazeValidation(result.maze, result.playerPos, result.exitPos);
+  if (validation.isValid || retryCount >= MAX_GENERATION_RETRIES) {
     return result;
   }
 

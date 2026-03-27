@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { Point, GameState, GameMode, ThemeType, PowerupState, PowerupInventory, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
+import { Point, GameState, GameMode, ThemeType, SkinType, PowerupState, PowerupInventory, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
 import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, KEY_BLUE, KEY_DOOR_BLUE, KEY_GREEN, KEY_DOOR_GREEN, KEY_YELLOW, KEY_DOOR_YELLOW, KEY_PURPLE, KEY_DOOR_PURPLE, ILLUSIONARY_WALL, HIDDEN_BUTTON, TOGGLE_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, VILLAIN_BASE_INTERVAL, HARD_MILESTONES, GAME_MODES, PREMIUM_LOOT, POWERUPS } from './constants';
 import { findPath, getPremiumLootMap } from './utils/mazeGenerator';
 
@@ -17,6 +17,9 @@ import { usePlayerAnim } from './hooks/usePlayerAnim';
 import { useDailyChallenge } from './hooks/useDailyChallenge';
 import { useDynamicCellSize } from './hooks/useDynamicCellSize';
 import { useVillain } from './hooks/useVillain';
+import { useGameplayFeedback } from './hooks/useGameplayFeedback';
+import { useGameplayRuntimeEffects } from './hooks/useGameplayRuntimeEffects';
+import { useTileEffects } from './hooks/useTileEffects';
 
 import TopBar from './components/TopBar';
 import StartMenu from './components/StartMenu';
@@ -59,6 +62,8 @@ export default function App() {
 
   const [theme, setTheme] = useState<ThemeType>('default');
   const [unlockedThemes, setUnlockedThemes] = useState<ThemeType[]>(['default']);
+  const [selectedSkin, setSelectedSkin] = useState<SkinType>('scout');
+  const [unlockedSkins, setUnlockedSkins] = useState<SkinType[]>(['scout']);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [sfxVolume, setSfxVolume] = useState(0.5);
   const [musicVolume, setMusicVolume] = useState(0.3);
@@ -85,9 +90,6 @@ export default function App() {
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [joystick, setJoystick] = useState<JoystickState | null>(null);
-  // BUG-034/FEAT-001: feedback bij geblokkeerde acties
-  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
-  const blockedMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveMovesRef = useRef<{ dx: number; dy: number; count: number }>({ dx: 0, dy: 0, count: 0 });
   const [shownTutorials, setShownTutorials] = useState<Set<string>>(new Set());
   const [activeTutorial, setActiveTutorial] = useState<TutorialConfig | null>(null);
@@ -117,8 +119,8 @@ export default function App() {
   const activePowerupsRef = useRef(activePowerups);
   const lastMoveTimeRef = useRef(0);
   const autoSaveRef = useRef({
-    currentLevel, gameMode, soundEnabled, theme, coins,
-    unlockedThemes, unlockedAchievements, lastDailyCompleted,
+    currentLevel, gameMode, soundEnabled, theme, selectedSkin, coins,
+    unlockedThemes, unlockedSkins, unlockedAchievements, lastDailyCompleted,
     sfxVolume, musicVolume, controlScheme, shownTutorials,
     gameState, unlockedGameModes, activePowerups, playerHealth,
     streakCount, lastStreakTimestamp,
@@ -139,13 +141,13 @@ export default function App() {
   useEffect(() => { localStorage.setItem('powerupInventory', JSON.stringify(powerupInventory)); }, [powerupInventory]);
   useEffect(() => {
     autoSaveRef.current = {
-      currentLevel, gameMode, soundEnabled, theme, coins,
-      unlockedThemes, unlockedAchievements, lastDailyCompleted,
+      currentLevel, gameMode, soundEnabled, theme, selectedSkin, coins,
+      unlockedThemes, unlockedSkins, unlockedAchievements, lastDailyCompleted,
       sfxVolume, musicVolume, controlScheme, shownTutorials,
       gameState, unlockedGameModes, activePowerups, playerHealth,
       streakCount, lastStreakTimestamp, isDailyChallenge,
     };
-  }, [currentLevel, gameMode, soundEnabled, theme, coins, unlockedThemes, unlockedAchievements, lastDailyCompleted, sfxVolume, musicVolume, controlScheme, shownTutorials, gameState, unlockedGameModes, activePowerups, playerHealth, streakCount, lastStreakTimestamp, isDailyChallenge]);
+  }, [currentLevel, gameMode, soundEnabled, theme, selectedSkin, coins, unlockedThemes, unlockedSkins, unlockedAchievements, lastDailyCompleted, sfxVolume, musicVolume, controlScheme, shownTutorials, gameState, unlockedGameModes, activePowerups, playerHealth, streakCount, lastStreakTimestamp, isDailyChallenge]);
 
   // Audio — playSound available via hook
   const { playSound } = useAudio({ soundEnabled, sfxVolume, musicVolume, gameState, exitPos, playerPosRef });
@@ -171,10 +173,10 @@ export default function App() {
   });
 
   // Shop
-  const { buyGameMode, buyTheme, buyPowerup, buyCoins } = useShop({
-    coins, gameMode, unlockedGameModes, unlockedThemes,
+  const { buyGameMode, buyTheme, buyPowerup, buySkin, buyCoins } = useShop({
+    coins, gameMode, unlockedGameModes, unlockedThemes, unlockedSkins,
     setCoins, setUnlockedGameModes, setGameMode,
-    setUnlockedThemes, setTheme, setPowerupInventory,
+    setUnlockedThemes, setTheme, setUnlockedSkins, setSelectedSkin, setPowerupInventory,
   });
 
   // Daily Challenge + Streak
@@ -190,10 +192,10 @@ export default function App() {
   // Save/Load
   const { saveProgress, loadInitialData, loadSavedGame } = useSaveLoad({
     autoSaveRef, activePowerups, setHasSavedGame,
-    setUnlockedThemes, setUnlockedAchievements, setCoins, setLastDailyCompleted,
+    setUnlockedThemes, setUnlockedSkins, setUnlockedAchievements, setCoins, setLastDailyCompleted,
     setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
     setShownTutorials, setUnlockedGameModes,
-    setGameMode, setTheme, setActivePowerups, setPowerupInventory, setPlayerHealth,
+    setGameMode, setTheme, setSelectedSkin, setActivePowerups, setPowerupInventory, setPlayerHealth,
     setStreakCount, setLastStreakTimestamp,
     // BUG-040: daily challenge state herstellen bij laden
     setIsDailyChallenge, startLevel,
@@ -222,7 +224,36 @@ export default function App() {
   const dynamicCellSize = useDynamicCellSize(gameState, maze.length);
 
   // IMP-002/003: Centrale tile-effect + damage functie — gebruikt door movePlayer, performJump en useTeleport
-  const applyTileEffects = useCallback((x: number, y: number, cell: number) => {
+  const { blockedMessage, showBlocked } = useGameplayFeedback();
+  const { applyTileEffects } = useTileEffects({
+    activePowerups,
+    heldColorKeys,
+    hasKey,
+    exitPos,
+    shownTutorials,
+    premiumLootMap,
+    activeModifier,
+    colorKeyPairs: COLOR_KEY_PAIRS,
+    mazeRef,
+    playSound,
+    setCoins,
+    setCoinsCollected,
+    setMaze,
+    setPremiumCollected,
+    setPowerupInventory,
+    setActivePowerups,
+    setHasKey,
+    setActiveTutorial,
+    setShownTutorials,
+    setUsedKeyThisLevel,
+    setHeldColorKeys,
+    setPuzzleState,
+    setIsDoorOpen,
+    setPlayerHealth,
+    setGameState,
+    setDamageFlash,
+  });
+  /*const applyTileEffects = useCallback((x: number, y: number, cell: number) => {
     if (cell === COIN) {
       setCoins((prev) => prev + 10);
       setCoinsCollected((prev) => prev + 1);
@@ -324,7 +355,7 @@ export default function App() {
     if (blockedMsgTimerRef.current) clearTimeout(blockedMsgTimerRef.current);
     setBlockedMessage(msg);
     blockedMsgTimerRef.current = setTimeout(() => setBlockedMessage(null), 1200);
-  }, []);
+  }, []);*/
 
   // Movement Logic (PROTECTED)
   const movePlayer = useCallback((dx: number, dy: number) => {
@@ -539,7 +570,24 @@ export default function App() {
     playSound(1200, 'sine', 0.3);
   }, [playSound]);
 
-  // Magnet: auto-collect coins within 3 cells every 300ms
+  useGameplayRuntimeEffects({
+    activePowerups,
+    activePowerupsRef,
+    playerPosRef,
+    mazeRef,
+    gameStateRef,
+    isPausedRef,
+    playSound,
+    setMaze,
+    setCoins,
+    setCoinsCollected,
+    setActivePowerups,
+    setPlayerHealth,
+    setGameState,
+    setDamageFlash,
+  });
+
+  /* // Magnet: auto-collect coins within 3 cells every 300ms
   useEffect(() => {
     if (activePowerups.magnet <= Date.now()) return;
     const interval = setInterval(() => {
@@ -600,7 +648,14 @@ export default function App() {
       }
     }, 1500);
     return () => clearInterval(interval);
-  }, [playSound]);
+  }, [playSound]); */
+
+  // Hard mode: slechterik
+  const { villainPos, setVillainPos, villainRef } = useVillain({
+    gameMode, currentLevel, gameState, gameStateRef,
+    mazeRef, playerPosRef, isPausedRef, activePowerupsRef,
+    setPlayerHealth, setGameState, setDamageFlash,
+  });
 
   // Hard mode: ad-revive — reset teller bij nieuw level
   useEffect(() => {
@@ -765,6 +820,7 @@ export default function App() {
         {gameState === 'playing' && (
           <GameUI
             theme={theme}
+            selectedSkin={selectedSkin}
             activePowerups={activePowerups}
             isDailyChallenge={isDailyChallenge}
             currentLevel={currentLevel}
@@ -845,13 +901,8 @@ export default function App() {
               startLevel={startLevel}
               restartGame={restartGame}
               nextLevel={() => {
-                if (gameMode === 'hard') {
-                  // Hard mode: onbeperkt levels, geen cap op 10
-                  startLevel(currentLevel + 1);
-                } else {
-                  const s = calculateScore({ currentLevel, elapsedTime, moves, playerHealth, coinsCollected });
-                  nextLevel(s);
-                }
+                const s = calculateScore({ currentLevel, elapsedTime, moves, playerHealth, coinsCollected });
+                nextLevel(s);
               }}
               gameMode={gameMode}
               adReviveCount={adReviveCount}
@@ -891,8 +942,8 @@ export default function App() {
         setControlScheme={setControlScheme}
         onSave={() =>
           saveProgress(
-            currentLevel, gameMode, soundEnabled, theme, coins,
-            unlockedThemes, unlockedAchievements, lastDailyCompleted,
+            currentLevel, gameMode, soundEnabled, theme, selectedSkin, coins,
+            unlockedThemes, unlockedSkins, unlockedAchievements, lastDailyCompleted,
             sfxVolume, musicVolume, controlScheme,
             Array.from(shownTutorials), unlockedGameModes, activePowerups, playerHealth,
             streakCount, lastStreakTimestamp, isDailyChallenge
@@ -908,8 +959,11 @@ export default function App() {
         shopSort={shopSort}
         setShopSort={setShopSort}
         unlockedThemes={unlockedThemes}
+        selectedSkin={selectedSkin}
+        unlockedSkins={unlockedSkins}
         buyTheme={buyTheme}
         buyPowerup={buyPowerup}
+        buySkin={buySkin}
         buyCoins={buyCoins}
         currentLevel={currentLevel}
         powerupInventory={powerupInventory}

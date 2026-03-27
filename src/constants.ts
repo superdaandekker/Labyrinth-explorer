@@ -1,5 +1,5 @@
 import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost, ChevronsUp, Crosshair, Magnet, Snowflake, Navigation, Hammer } from 'lucide-react';
-import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier, StreakReward, MilestoneBonus, DailyChallengeConfig } from './types';
+import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, SkinType, SkinConfig, PowerupConfig, TutorialConfig, DailyModifier, StreakReward, MilestoneBonus, DailyChallengeConfig } from './types';
 import React from 'react';
 
 // Maze cell type constants
@@ -528,6 +528,64 @@ export const THEMES: Record<ThemeType, ThemeConfig> = {
     doorAccent: 'bg-emerald-700',
     gasColor: 'bg-purple-500/20',
   }
+};
+
+export const SKINS: Record<SkinType, SkinConfig> = {
+  scout: {
+    label: 'Maze Scout',
+    description: 'A nimble explorer with a bright hood and quick feet.',
+    price: 0,
+    baseColor: '#f59e0b',
+    accentColor: '#fde68a',
+    detailColor: '#7c2d12',
+    outlineColor: '#451a03',
+    eyeColor: '#f8fafc',
+    glowColor: 'rgba(245,158,11,0.45)',
+  },
+  knight: {
+    label: 'Iron Knight',
+    description: 'Heavy armor, a clear visor, and a fearless stance.',
+    price: 180,
+    baseColor: '#94a3b8',
+    accentColor: '#e2e8f0',
+    detailColor: '#475569',
+    outlineColor: '#0f172a',
+    eyeColor: '#38bdf8',
+    glowColor: 'rgba(148,163,184,0.45)',
+  },
+  rogue: {
+    label: 'Shadow Rogue',
+    description: 'A masked infiltrator built for silent corridor runs.',
+    price: 240,
+    baseColor: '#a855f7',
+    accentColor: '#f0abfc',
+    detailColor: '#581c87',
+    outlineColor: '#2e1065',
+    eyeColor: '#fef08a',
+    glowColor: 'rgba(168,85,247,0.45)',
+  },
+  mech: {
+    label: 'Pulse Mech',
+    description: 'A compact robot shell packed with neon core energy.',
+    price: 320,
+    baseColor: '#06b6d4',
+    accentColor: '#67e8f9',
+    detailColor: '#164e63',
+    outlineColor: '#082f49',
+    eyeColor: '#ecfeff',
+    glowColor: 'rgba(6,182,212,0.45)',
+  },
+  mage: {
+    label: 'Arcane Mage',
+    description: 'A robe-wrapped caster carrying a live crystal focus.',
+    price: 420,
+    baseColor: '#2563eb',
+    accentColor: '#93c5fd',
+    detailColor: '#1e3a8a',
+    outlineColor: '#172554',
+    eyeColor: '#dbeafe',
+    glowColor: 'rgba(37,99,235,0.45)',
+  },
 };
 
 export const containerVariants = {

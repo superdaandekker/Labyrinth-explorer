@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, MutableRefObject } from 'react';
-import { GameMode, ThemeType, PowerupState, PowerupInventory } from '../types';
+import { GameMode, ThemeType, SkinType, PowerupState, PowerupInventory } from '../types';
 
 // IMP-031: centrale save-structuur — alle veldnamen consistent als camelCase
 interface SaveData {
@@ -7,8 +7,10 @@ interface SaveData {
   gameMode: GameMode;
   soundEnabled: boolean;
   theme: ThemeType;
+  selectedSkin: SkinType;
   coins: number;
   unlockedThemes: ThemeType[];
+  unlockedSkins: SkinType[];
   unlockedAchievements: string[];
   lastDailyCompleted: string | null;
   sfxVolume: number;
@@ -27,12 +29,14 @@ interface SaveData {
 
 const VALID_GAME_MODES: GameMode[] = ['normal', 'timed', 'premium', 'hard'];
 const VALID_THEMES: ThemeType[] = ['default', 'cyberpunk', 'ruins', 'forest'];
+const VALID_SKINS: SkinType[] = ['scout', 'knight', 'rogue', 'mech', 'mage'];
 
 interface UseSaveLoadProps {
   autoSaveRef: MutableRefObject<SaveData>;
   activePowerups: PowerupState;
   setHasSavedGame: (v: boolean) => void;
   setUnlockedThemes: (v: ThemeType[]) => void;
+  setUnlockedSkins: (v: SkinType[]) => void;
   setUnlockedAchievements: (v: string[]) => void;
   setCoins: (v: number) => void;
   setLastDailyCompleted: (v: string | null) => void;
@@ -44,6 +48,7 @@ interface UseSaveLoadProps {
   setUnlockedGameModes: (v: GameMode[]) => void;
   setGameMode: (v: GameMode) => void;
   setTheme: (v: ThemeType) => void;
+  setSelectedSkin: (v: SkinType) => void;
   setActivePowerups: (v: PowerupState) => void;
   setPowerupInventory: (fn: (prev: PowerupInventory) => PowerupInventory) => void;
   setPlayerHealth: (v: number) => void;
@@ -64,6 +69,10 @@ const applyParsedSave = (
   const coins = typeof data.coins === 'number' ? Math.max(0, data.coins) : 0;
   setters.setCoins(coins);
   setters.setUnlockedThemes(Array.isArray(data.unlockedThemes) ? data.unlockedThemes : ['default']);
+  const unlockedSkins: SkinType[] = Array.isArray(data.unlockedSkins)
+    ? data.unlockedSkins.filter((skin): skin is SkinType => VALID_SKINS.includes(skin))
+    : ['scout'];
+  setters.setUnlockedSkins(unlockedSkins.length > 0 ? unlockedSkins : ['scout']);
   setters.setUnlockedAchievements(Array.isArray(data.unlockedAchievements) ? data.unlockedAchievements : []);
   setters.setLastDailyCompleted(typeof data.lastDailyCompleted === 'string' ? data.lastDailyCompleted : null);
   setters.setSoundEnabled(typeof data.soundEnabled === 'boolean' ? data.soundEnabled : true);
@@ -78,6 +87,9 @@ const applyParsedSave = (
   setters.setGameMode(gameMode);
   const theme: ThemeType = VALID_THEMES.includes(data.theme) ? data.theme : 'default';
   setters.setTheme(theme);
+  const selectedSkin: SkinType = VALID_SKINS.includes(data.selectedSkin) ? data.selectedSkin : 'scout';
+  const fallbackSkin: SkinType = unlockedSkins[0] ?? 'scout';
+  setters.setSelectedSkin(unlockedSkins.includes(selectedSkin) ? selectedSkin : fallbackSkin);
   const defaultPowerups = { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 };
   const saved = (data.activePowerups && typeof data.activePowerups === 'object' && !Array.isArray(data.activePowerups))
     ? data.activePowerups : defaultPowerups;
@@ -101,17 +113,17 @@ const applyParsedSave = (
 
 export const useSaveLoad = ({
   autoSaveRef, activePowerups, setHasSavedGame,
-  setUnlockedThemes, setUnlockedAchievements, setCoins, setLastDailyCompleted,
+  setUnlockedThemes, setUnlockedSkins, setUnlockedAchievements, setCoins, setLastDailyCompleted,
   setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
   setShownTutorials, setUnlockedGameModes, setGameMode, setTheme,
-  setActivePowerups, setPowerupInventory, setPlayerHealth, setStreakCount, setLastStreakTimestamp,
+  setSelectedSkin, setActivePowerups, setPowerupInventory, setPlayerHealth, setStreakCount, setLastStreakTimestamp,
   setIsDailyChallenge, startLevel,
 }: UseSaveLoadProps) => {
   const setters = {
-    setHasSavedGame, setUnlockedThemes, setUnlockedAchievements, setCoins,
+    setHasSavedGame, setUnlockedThemes, setUnlockedSkins, setUnlockedAchievements, setCoins,
     setLastDailyCompleted, setSoundEnabled, setSfxVolume, setMusicVolume,
     setControlScheme, setShownTutorials, setUnlockedGameModes,
-    setGameMode, setTheme, setActivePowerups, setPowerupInventory,
+    setGameMode, setTheme, setSelectedSkin, setActivePowerups, setPowerupInventory,
     setStreakCount, setLastStreakTimestamp, setIsDailyChallenge,
   };
   const settersRef = useRef(setters);
@@ -121,7 +133,8 @@ export const useSaveLoad = ({
   const saveProgress = useCallback(
     (
       levelIdx: number, mode: GameMode, sound: boolean, currentTheme: ThemeType,
-      currentCoins: number, unlocked: ThemeType[], achievements: string[],
+      currentSkin: SkinType, currentCoins: number, unlocked: ThemeType[],
+      unlockedSkinList: SkinType[], achievements: string[],
       daily: string | null, sfx: number, music: number,
       scheme: 'swipe' | 'joystick', tutorials: string[],
       unlockedModes: GameMode[], powerups?: PowerupState, health?: number,
@@ -129,7 +142,8 @@ export const useSaveLoad = ({
     ) => {
       localStorage.setItem('labyrinth_save', JSON.stringify({
         currentLevel: levelIdx, gameMode: mode, unlockedGameModes: unlockedModes,
-        theme: currentTheme, coins: currentCoins, unlockedThemes: unlocked,
+        theme: currentTheme, selectedSkin: currentSkin, coins: currentCoins,
+        unlockedThemes: unlocked, unlockedSkins: unlockedSkinList,
         unlockedAchievements: achievements, lastDailyCompleted: daily,
         soundEnabled: sound, sfxVolume: sfx, musicVolume: music,
         controlScheme: scheme, shownTutorials: tutorials,
@@ -150,8 +164,8 @@ export const useSaveLoad = ({
       const s = autoSaveRef.current;
       if (s.gameState === 'playing') {
         saveProgress(
-          s.currentLevel, s.gameMode, s.soundEnabled, s.theme, s.coins,
-          s.unlockedThemes, s.unlockedAchievements, s.lastDailyCompleted,
+          s.currentLevel, s.gameMode, s.soundEnabled, s.theme, s.selectedSkin, s.coins,
+          s.unlockedThemes, s.unlockedSkins, s.unlockedAchievements, s.lastDailyCompleted,
           s.sfxVolume, s.musicVolume, s.controlScheme,
           Array.from(s.shownTutorials as Iterable<string>),
           s.unlockedGameModes, s.activePowerups, s.playerHealth,

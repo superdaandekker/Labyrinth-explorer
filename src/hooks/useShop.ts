@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { GameMode, ThemeType, PowerupInventory } from '../types';
-import { GAME_MODES } from '../constants';
+import { GameMode, ThemeType, SkinType, PowerupInventory } from '../types';
+import { GAME_MODES, SKINS } from '../constants';
 import { audioManager } from '../audio/audioManager';
 
 interface UseShopProps {
@@ -8,18 +8,21 @@ interface UseShopProps {
   gameMode: GameMode;
   unlockedGameModes: GameMode[];
   unlockedThemes: ThemeType[];
+  unlockedSkins: SkinType[];
   setCoins: (fn: (prev: number) => number) => void;
   setUnlockedGameModes: (fn: (prev: GameMode[]) => GameMode[]) => void;
   setGameMode: (mode: GameMode) => void;
   setUnlockedThemes: (fn: (prev: ThemeType[]) => ThemeType[]) => void;
   setTheme: (theme: ThemeType) => void;
+  setUnlockedSkins: (fn: (prev: SkinType[]) => SkinType[]) => void;
+  setSelectedSkin: (skin: SkinType) => void;
   setPowerupInventory: (fn: (prev: PowerupInventory) => PowerupInventory) => void;
 }
 
 export const useShop = ({
-  coins, unlockedGameModes, unlockedThemes,
+  coins, unlockedGameModes, unlockedThemes, unlockedSkins,
   setCoins, setUnlockedGameModes, setGameMode,
-  setUnlockedThemes, setTheme, setPowerupInventory,
+  setUnlockedThemes, setTheme, setUnlockedSkins, setSelectedSkin, setPowerupInventory,
 }: UseShopProps) => {
   const buyGameMode = useCallback(
     (mode: GameMode) => {
@@ -57,6 +60,27 @@ export const useShop = ({
     [coins, setCoins, setPowerupInventory]
   );
 
+  const buySkin = useCallback(
+    (skinId: SkinType) => {
+      const skin = SKINS[skinId];
+      if (!skin) return;
+
+      if (unlockedSkins.includes(skinId)) {
+        setSelectedSkin(skinId);
+        audioManager.playSound(900, 'triangle', 0.2);
+        return;
+      }
+
+      if (coins >= skin.price) {
+        setCoins((prev) => prev - skin.price);
+        setUnlockedSkins((prev) => [...prev, skinId]);
+        setSelectedSkin(skinId);
+        audioManager.playSound(1200, 'sine', 0.3);
+      }
+    },
+    [coins, unlockedSkins, setCoins, setUnlockedSkins, setSelectedSkin]
+  );
+
   const buyCoins = useCallback(
     (amount: number) => {
       setCoins((prev) => Math.min(9999, prev + amount));
@@ -65,5 +89,5 @@ export const useShop = ({
     [setCoins]
   );
 
-  return { buyGameMode, buyTheme, buyPowerup, buyCoins };
+  return { buyGameMode, buyTheme, buyPowerup, buySkin, buyCoins };
 };

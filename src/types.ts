@@ -46,6 +46,8 @@ export interface Achievement {
 
 export type ThemeType = 'default' | 'cyberpunk' | 'ruins' | 'forest';
 
+export type SkinType = 'scout' | 'knight' | 'rogue' | 'mech' | 'mage';
+
 export interface ThemeConfig {
   label: string;
   wallColor: string;
@@ -69,6 +71,18 @@ export interface ThemeConfig {
   doorColor: string;
   doorAccent: string;
   gasColor: string;
+}
+
+export interface SkinConfig {
+  label: string;
+  description: string;
+  price: number;
+  baseColor: string;
+  accentColor: string;
+  detailColor: string;
+  outlineColor: string;
+  eyeColor: string;
+  glowColor: string;
 }
 
 export interface PowerupState {

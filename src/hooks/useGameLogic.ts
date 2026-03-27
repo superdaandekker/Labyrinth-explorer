@@ -134,13 +134,18 @@ export const useGameLogic = ({
 
   const nextLevel = useCallback((currentScore = 0) => {
     const nextIdx = currentLevel + 1;
+    if (gameMode === 'hard') {
+      startLevel(nextIdx);
+      return;
+    }
+
     if (nextIdx >= 10) {
       setGameState('complete');
       addEntry(elapsedTime, moves, currentScore);
     } else {
       startLevel(nextIdx);
     }
-  }, [currentLevel, elapsedTime, moves, startLevel, setGameState, addEntry]);
+  }, [currentLevel, gameMode, elapsedTime, moves, startLevel, setGameState, addEntry]);
 
   const restartGame = useCallback(() => {
     setGameState('start');

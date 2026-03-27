@@ -1,12 +1,13 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'motion/react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X } from 'lucide-react';
-import { ThemeType, Point, PowerupState, JoystickState, TrailPoint } from '../types';
-import { THEMES, VIEWPORT_SIZE } from '../constants';
+import { ThemeType, SkinType, Point, PowerupState, JoystickState, TrailPoint } from '../types';
+import { THEMES, SKINS, VIEWPORT_SIZE } from '../constants';
 import MazeCell from './MazeCell';
 
 interface MazeViewportProps {
   theme: ThemeType;
+  selectedSkin: SkinType;
   activePowerups: PowerupState;
   currentLevel: number;
   dynamicCellSize: number;
@@ -35,15 +36,125 @@ interface MazeViewportProps {
   villainPos?: Point | null;
 }
 
+const renderSkinCharacter = (
+  selectedSkin: SkinType,
+  dynamicCellSize: number,
+  moveDirection: 'up' | 'down' | 'left' | 'right',
+  isDashing: boolean
+) => {
+  const skin = SKINS[selectedSkin];
+  const faceShift = moveDirection === 'left' ? -1.5 : moveDirection === 'right' ? 1.5 : 0;
+  const tilt = moveDirection === 'left' ? -5 : moveDirection === 'right' ? 5 : 0;
+  const outline = `1.5px solid ${skin.outlineColor}`;
+  const headSize = Math.max(8, dynamicCellSize * 0.34);
+  const eyeSize = Math.max(1.5, dynamicCellSize * 0.055);
+  const glow = isDashing ? `drop-shadow(0 0 8px ${skin.glowColor})` : 'none';
+
+  const eyes = (
+    <div
+      className="absolute z-20 flex items-center justify-center"
+      style={{
+        left: `calc(50% + ${faceShift}px)`,
+        top: dynamicCellSize * 0.22,
+        width: headSize * 0.58,
+        transform: 'translateX(-50%)',
+        gap: eyeSize * 1.5,
+      }}
+    >
+      <span className="rounded-full" style={{ width: eyeSize, height: eyeSize, backgroundColor: skin.eyeColor }} />
+      <span className="rounded-full" style={{ width: eyeSize, height: eyeSize, backgroundColor: skin.eyeColor }} />
+    </div>
+  );
+
+  if (selectedSkin === 'knight') {
+    return (
+      <div className="absolute inset-0" style={{ filter: glow }}>
+        <div className="absolute left-[18%] right-[18%] top-[14%] h-[28%] rounded-[28%]" style={{ backgroundColor: skin.baseColor, border: outline, transform: `rotate(${tilt}deg)` }} />
+        <div className="absolute left-[24%] right-[24%] top-[24%] h-[7%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        {eyes}
+        <div className="absolute left-[15%] right-[15%] top-[44%] h-[28%] rounded-[30%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[9%] top-[46%] h-[18%] w-[16%] rounded-full" style={{ backgroundColor: skin.accentColor, border: outline }} />
+        <div className="absolute right-[9%] top-[46%] h-[18%] w-[16%] rounded-full" style={{ backgroundColor: skin.accentColor, border: outline }} />
+        <div className="absolute left-[28%] right-[28%] top-[52%] h-[8%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+        <div className="absolute left-[22%] top-[70%] h-[18%] w-[16%] rounded-b-full" style={{ backgroundColor: skin.detailColor, borderLeft: outline, borderRight: outline, borderBottom: outline }} />
+        <div className="absolute right-[22%] top-[70%] h-[18%] w-[16%] rounded-b-full" style={{ backgroundColor: skin.detailColor, borderLeft: outline, borderRight: outline, borderBottom: outline }} />
+      </div>
+    );
+  }
+
+  if (selectedSkin === 'rogue') {
+    return (
+      <div className="absolute inset-0" style={{ filter: glow }}>
+        <div className="absolute left-[21%] right-[21%] top-[12%] h-[31%] rounded-[42%_42%_36%_36%]" style={{ backgroundColor: skin.baseColor, border: outline, transform: `rotate(${tilt}deg)` }} />
+        <div className="absolute left-[28%] right-[28%] top-[24%] h-[10%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        {eyes}
+        <div className="absolute left-[24%] right-[24%] top-[44%] h-[31%] rounded-[40%_40%_28%_28%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[32%] right-[32%] top-[55%] h-[6%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+        <div className="absolute left-[17%] top-[50%] h-[20%] w-[11%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute right-[17%] top-[50%] h-[20%] w-[11%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute left-[26%] top-[70%] h-[18%] w-[12%] rounded-b-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute right-[26%] top-[70%] h-[18%] w-[12%] rounded-b-full" style={{ backgroundColor: skin.detailColor }} />
+      </div>
+    );
+  }
+
+  if (selectedSkin === 'mech') {
+    return (
+      <div className="absolute inset-0" style={{ filter: glow }}>
+        <div className="absolute left-[24%] right-[24%] top-[14%] h-[26%] rounded-[22%]" style={{ backgroundColor: skin.baseColor, border: outline, transform: `rotate(${tilt}deg)` }} />
+        <div className="absolute left-[34%] top-[9%] h-[7%] w-[4%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+        <div className="absolute right-[34%] top-[9%] h-[7%] w-[4%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+        {eyes}
+        <div className="absolute left-[20%] right-[20%] top-[44%] h-[28%] rounded-[18%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+        <div className="absolute left-[32%] right-[32%] top-[51%] h-[10%] rounded-md" style={{ backgroundColor: skin.detailColor, border: `1px solid ${skin.accentColor}` }} />
+        <div className="absolute left-[10%] top-[48%] h-[18%] w-[10%] rounded-md" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute right-[10%] top-[48%] h-[18%] w-[10%] rounded-md" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute left-[26%] top-[72%] h-[16%] w-[12%] rounded-b-md" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute right-[26%] top-[72%] h-[16%] w-[12%] rounded-b-md" style={{ backgroundColor: skin.detailColor }} />
+      </div>
+    );
+  }
+
+  if (selectedSkin === 'mage') {
+    return (
+      <div className="absolute inset-0" style={{ filter: glow }}>
+        <div className="absolute left-[26%] right-[26%] top-[5%] h-[18%]" style={{ backgroundColor: skin.baseColor, clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)' }} />
+        <div className="absolute left-[22%] right-[22%] top-[18%] h-[5%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+        <div className="absolute left-[26%] right-[26%] top-[18%] h-[23%] rounded-full" style={{ backgroundColor: skin.baseColor, border: outline, transform: `rotate(${tilt}deg)` }} />
+        {eyes}
+        <div className="absolute left-[18%] right-[18%] top-[42%] h-[37%]" style={{ backgroundColor: skin.baseColor, clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)', borderBottom: outline }} />
+        <div className="absolute left-[38%] top-[48%] h-[13%] w-[24%] rounded-full" style={{ backgroundColor: skin.accentColor, opacity: 0.9 }} />
+        <div className="absolute left-[8%] top-[48%] h-[18%] w-[10%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute right-[8%] top-[48%] h-[18%] w-[10%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+        <div className="absolute right-[12%] top-[64%] h-[10%] w-[10%] rounded-full" style={{ backgroundColor: skin.accentColor, boxShadow: `0 0 8px ${skin.glowColor}` }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0" style={{ filter: glow }}>
+      <div className="absolute left-[24%] right-[24%] top-[14%] h-[26%] rounded-full" style={{ backgroundColor: skin.baseColor, border: outline, transform: `rotate(${tilt}deg)` }} />
+      {eyes}
+      <div className="absolute left-[23%] right-[23%] top-[44%] h-[28%] rounded-[36%]" style={{ backgroundColor: skin.baseColor, border: outline }} />
+      <div className="absolute left-[20%] right-[20%] top-[50%] h-[7%] rounded-full" style={{ backgroundColor: skin.accentColor }} />
+      <div className="absolute left-[14%] top-[46%] h-[19%] w-[11%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+      <div className="absolute right-[14%] top-[46%] h-[19%] w-[11%] rounded-full" style={{ backgroundColor: skin.detailColor }} />
+      <div className="absolute left-[30%] top-[71%] h-[17%] w-[11%] rounded-b-full" style={{ backgroundColor: skin.detailColor }} />
+      <div className="absolute right-[30%] top-[71%] h-[17%] w-[11%] rounded-b-full" style={{ backgroundColor: skin.detailColor }} />
+      <div className="absolute left-[55%] top-[44%] h-[12%] w-[16%] rounded-full" style={{ backgroundColor: skin.accentColor, transform: 'rotate(-18deg)' }} />
+    </div>
+  );
+};
+
 const MazeViewport = React.memo(({
-  theme, activePowerups, currentLevel, dynamicCellSize, playerPos,
+  theme, selectedSkin, activePowerups, currentLevel, dynamicCellSize, playerPos,
   maze, puzzleState, breakableWallsHealth, isDoorOpen, visitedCells,
   isHintActive, hintPath, exitPos, playerTrail,
   joystick, setJoystick, movePlayer, controlScheme,
   damageFlash, isBumping, isDashing = false, moveDirection = 'right',
   jumpProActive, executeJumpPro, cancelJumpPro,
   isFogOfWar = false, villainPos = null,
-}) => {
+}: MazeViewportProps) => {
   // BUG-030: één move per swipe-gesture
   const swipeMovedRef = useRef(false);
   // BUG-029: joystick vuurt alleen bij richtingswisseling opnieuw onmiddellijk
@@ -291,7 +402,7 @@ const MazeViewport = React.memo(({
 
           {/* Player */}
           <motion.div
-            className={`absolute rounded-full z-40 ${THEMES[theme].playerColor}`}
+            className="absolute z-40"
             animate={{
               left: playerPos.x * dynamicCellSize + 3,
               top: playerPos.y * dynamicCellSize + 3,
@@ -307,26 +418,16 @@ const MazeViewport = React.memo(({
               width: dynamicCellSize - 6, height: dynamicCellSize - 6,
               boxShadow: activePowerups.shield
                 ? '0 0 30px #60a5fa, 0 0 12px #60a5fa, inset 0 0 8px rgba(255,255,255,0.3)'
-                : `0 0 24px ${THEMES[theme].glowColor}, inset 0 0 8px rgba(255,255,255,0.2)`
+                : `0 0 24px ${THEMES[theme].glowColor}, 0 0 14px ${SKINS[selectedSkin].glowColor}`
             }}
           >
             <motion.div
-              className="absolute inset-[3px] rounded-full bg-white/30"
-              animate={{ opacity: isDashing ? [0.5, 1, 0.5] : [0.3, 0.6, 0.3] }}
+              className="absolute inset-0 rounded-full"
+              animate={{ opacity: isDashing ? [0.18, 0.34, 0.18] : [0.08, 0.16, 0.08] }}
               transition={{ repeat: Infinity, duration: isDashing ? 0.4 : 1.8, ease: 'easeInOut' }}
+              style={{ backgroundColor: SKINS[selectedSkin].glowColor }}
             />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <motion.span
-                key={moveDirection}
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: isDashing ? 0.9 : 0.5, scale: 1 }}
-                transition={{ duration: 0.15 }}
-                className="text-white font-black leading-none select-none"
-                style={{ fontSize: Math.max(8, dynamicCellSize * 0.28) }}
-              >
-                {moveDirection === 'right' ? '›' : moveDirection === 'left' ? '‹' : moveDirection === 'up' ? '˄' : '˅'}
-              </motion.span>
-            </div>
+            {renderSkinCharacter(selectedSkin, dynamicCellSize, moveDirection, isDashing)}
             <motion.div
               className="absolute -inset-1 rounded-full border border-white/20"
               animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0, 0.4] }}

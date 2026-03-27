@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Skull, RotateCcw, Trophy, ChevronRight, Zap, Tv } from 'lucide-react';
+import { Skull, RotateCcw, Trophy, ChevronRight, Zap, Tv, Share2 } from 'lucide-react';
 import { formatTime } from '../utils/formatTime';
 import { REVIVE_COST } from '../constants';
 import { GameMode } from '../types';
@@ -42,12 +42,66 @@ const itemVariants = {
   }
 };
 
+type ShareState = 'idle' | 'success' | 'error';
+
+const recordShareMetric = (eventName: 'share_clicked' | 'share_completed', payload: Record<string, unknown>) => {
+  try {
+    const raw = localStorage.getItem('labyrinth_growth_metrics');
+    const parsed = raw ? JSON.parse(raw) : { counts: {} as Record<string, number>, events: [] as unknown[] };
+    parsed.counts[eventName] = (parsed.counts[eventName] || 0) + 1;
+    parsed.events = [...parsed.events.slice(-19), { eventName, payload, ts: Date.now() }];
+    localStorage.setItem('labyrinth_growth_metrics', JSON.stringify(parsed));
+    window.dispatchEvent(new CustomEvent('labyrinth:metric', { detail: { eventName, payload } }));
+  } catch {
+    // Metrics zijn best-effort en mogen de share-flow niet blokkeren.
+  }
+};
+
 const EndScreen: React.FC<EndScreenProps> = ({
   gameState, playerHealth, currentLevel, elapsedTime, moves, coins,
   score, rank, revive, startLevel, restartGame, nextLevel,
   gameMode, adReviveCount = 0, onWatchAdRevive,
 }) => {
   const isWin = gameState === 'won' || gameState === 'complete';
+  const [shareState, setShareState] = React.useState<ShareState>('idle');
+
+  const handleShare = async () => {
+    if (!isWin) return;
+
+    const shareUrl = window.location.href;
+    const title = gameState === 'complete' ? 'I completed Labyrinth Explorer' : `I cleared Sector ${currentLevel + 1}`;
+    const text = [
+      `${title} in ${formatTime(elapsedTime)} with ${moves} moves.`,
+      score !== undefined ? `Score: ${score.toLocaleString()}.` : null,
+      rank ? `Rank: ${rank.label}.` : null,
+      'Can you beat my run in Labyrinth Explorer?',
+    ].filter(Boolean).join(' ');
+    const payload = {
+      gameState,
+      level: currentLevel + 1,
+      elapsedTime,
+      moves,
+      score: score ?? null,
+      rank: rank?.label ?? null,
+    };
+
+    recordShareMetric('share_clicked', payload);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Labyrinth Explorer', text, url: shareUrl });
+      } else {
+        await navigator.clipboard.writeText(`${text} ${shareUrl}`);
+      }
+
+      recordShareMetric('share_completed', payload);
+      setShareState('success');
+    } catch {
+      setShareState('error');
+    }
+
+    window.setTimeout(() => setShareState('idle'), 2200);
+  };
 
   return (
     <motion.div
@@ -117,6 +171,21 @@ const EndScreen: React.FC<EndScreenProps> = ({
           <div className="font-mono text-lg sm:text-xl text-white">{moves}</div>
         </div>
       </motion.div>
+
+      {isWin && (
+        <motion.div variants={itemVariants} className="mb-5 sm:mb-7">
+          <button
+            onClick={handleShare}
+            className="w-full py-3 sm:py-4 bg-gradient-to-r from-fuchsia-500 to-cyan-400 text-black font-bold rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all text-sm sm:text-base shadow-lg shadow-cyan-500/20"
+          >
+            <Share2 size={18} />
+            {shareState === 'success' ? 'CHALLENGE COPIED' : shareState === 'error' ? 'SHARE FAILED' : 'BEAT MY RUN'}
+          </button>
+          <div className="mt-2 text-[10px] uppercase tracking-widest text-zinc-500 font-bold">
+            Tracks `share_clicked` and `share_completed`
+          </div>
+        </motion.div>
+      )}
 
       {gameState === 'gameover' ? (
         <motion.div variants={itemVariants} className="flex flex-col gap-2 sm:gap-3 w-full">
