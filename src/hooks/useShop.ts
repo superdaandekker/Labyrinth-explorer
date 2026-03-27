@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { GameMode, ThemeType, PowerupState } from '../types';
+import { GameMode, ThemeType, PowerupInventory } from '../types';
 import { GAME_MODES } from '../constants';
 import { audioManager } from '../audio/audioManager';
 
@@ -13,13 +13,13 @@ interface UseShopProps {
   setGameMode: (mode: GameMode) => void;
   setUnlockedThemes: (fn: (prev: ThemeType[]) => ThemeType[]) => void;
   setTheme: (theme: ThemeType) => void;
-  setActivePowerups: (fn: (prev: PowerupState) => PowerupState) => void;
+  setPowerupInventory: (fn: (prev: PowerupInventory) => PowerupInventory) => void;
 }
 
 export const useShop = ({
   coins, unlockedGameModes, unlockedThemes,
   setCoins, setUnlockedGameModes, setGameMode,
-  setUnlockedThemes, setTheme, setActivePowerups,
+  setUnlockedThemes, setTheme, setPowerupInventory,
 }: UseShopProps) => {
   const buyGameMode = useCallback(
     (mode: GameMode) => {
@@ -50,19 +50,11 @@ export const useShop = ({
     (powerupId: string, price: number) => {
       if (coins >= price) {
         setCoins((prev) => prev - price);
-        if (powerupId === 'shield') setActivePowerups((p) => ({ ...p, shield: true }));
-        if (powerupId === 'speed') setActivePowerups((p) => ({ ...p, speed: Date.now() + 30000 }));
-        if (powerupId === 'map') setActivePowerups((p) => ({ ...p, map: Date.now() + 60000 }));
-        if (powerupId === 'jump') setActivePowerups((p) => ({ ...p, jump: Math.min(99, p.jump + 1) }));
-        if (powerupId === 'jumpPro') setActivePowerups((p) => ({ ...p, jumpPro: Math.min(99, p.jumpPro + 1) }));
-        if (powerupId === 'ghost') setActivePowerups((p) => ({ ...p, ghost: Math.min(99, p.ghost + 1) }));
-        if (powerupId === 'magnet') setActivePowerups((p) => ({ ...p, magnet: Date.now() + 15000 }));
-        if (powerupId === 'freeze') setActivePowerups((p) => ({ ...p, freeze: Date.now() + 10000 }));
-        if (powerupId === 'teleport') setActivePowerups((p) => ({ ...p, teleport: Math.min(99, p.teleport + 1) }));
+        setPowerupInventory((prev) => ({ ...prev, [powerupId]: Math.min(99, (prev[powerupId] || 0) + 1) }));
         audioManager.playSound(1000, 'sine', 0.3);
       }
     },
-    [coins, setCoins, setActivePowerups]
+    [coins, setCoins, setPowerupInventory]
   );
 
   const buyCoins = useCallback(

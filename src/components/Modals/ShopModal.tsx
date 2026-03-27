@@ -19,6 +19,7 @@ interface ShopModalProps {
   buyPowerup: (powerupId: string, price: number) => void;
   buyCoins: (amount: number, price: number) => void;
   currentLevel: number;
+  powerupInventory: Record<string, number>;
 }
 
 const ShopModal: React.FC<ShopModalProps> = ({
@@ -34,6 +35,7 @@ const ShopModal: React.FC<ShopModalProps> = ({
   buyPowerup,
   buyCoins,
   currentLevel,
+  powerupInventory,
 }) => {
   const sortedThemes = Object.entries(THEMES)
     .filter(([id]) => id !== 'default')
@@ -161,9 +163,16 @@ const ShopModal: React.FC<ShopModalProps> = ({
                               <Lock size={14} />
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-lg text-amber-500 font-mono font-bold text-sm">
-                              <Coins size={14} />
-                              {powerup.price}
+                            <div className="flex items-center gap-2">
+                              {(powerupInventory[id] || 0) > 0 && (
+                                <div className="px-2 py-1 bg-zinc-700/60 rounded-lg text-zinc-300 font-black text-[10px]">
+                                  ×{powerupInventory[id]}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-lg text-amber-500 font-mono font-bold text-sm">
+                                <Coins size={14} />
+                                {powerup.price}
+                              </div>
                             </div>
                           )}
                         </button>

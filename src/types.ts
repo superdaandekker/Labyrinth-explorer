@@ -88,6 +88,8 @@ export interface ActiveModifier {
   icon: ReactNode;
 }
 
+export type PowerupInventory = Record<string, number>;
+
 export interface JoystickState {
   startX?: number;
   startY?: number;

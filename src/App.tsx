@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { Point, GameState, GameMode, ThemeType, PowerupState, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
+import { Point, GameState, GameMode, ThemeType, PowerupState, PowerupInventory, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
 import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, ILLUSIONARY_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, DAILY_STREAK_REWARDS } from './constants';
 import { findPath } from './utils/mazeGenerator';
 
@@ -58,6 +58,10 @@ export default function App() {
   const [hasSavedGame, setHasSavedGame] = useState(false);
 
   const [activePowerups, setActivePowerups] = useState<PowerupState>({ shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 });
+  const [powerupInventory, setPowerupInventory] = useState<PowerupInventory>(() => {
+    try { const s = localStorage.getItem('powerupInventory'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  const powerupInventoryRef = useRef<PowerupInventory>({});
   const [streakCount, setStreakCount] = useState(0);
   const [lastStreakTimestamp, setLastStreakTimestamp] = useState(0);
   const [streakReward, setStreakReward] = useState<StreakReward | null>(null);
@@ -95,6 +99,8 @@ export default function App() {
   useEffect(() => { playerPosRef.current = playerPos; }, [playerPos]);
   useEffect(() => { mazeRef.current = maze; }, [maze]);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+  useEffect(() => { powerupInventoryRef.current = powerupInventory; }, [powerupInventory]);
+  useEffect(() => { localStorage.setItem('powerupInventory', JSON.stringify(powerupInventory)); }, [powerupInventory]);
   useEffect(() => {
     autoSaveRef.current = {
       currentLevel, gameMode, soundEnabled, theme, coins,
@@ -131,7 +137,7 @@ export default function App() {
   const { buyGameMode, buyTheme, buyPowerup, buyCoins } = useShop({
     coins, gameMode, unlockedGameModes, unlockedThemes,
     setCoins, setUnlockedGameModes, setGameMode,
-    setUnlockedThemes, setTheme, setActivePowerups,
+    setUnlockedThemes, setTheme, setPowerupInventory,
   });
 
   // Save/Load
@@ -140,7 +146,7 @@ export default function App() {
     setUnlockedThemes, setUnlockedAchievements, setCoins, setLastDailyCompleted,
     setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
     setShownTutorials, setUnlockedGameModes,
-    setGameMode, setTheme, setActivePowerups, setPlayerHealth,
+    setGameMode, setTheme, setActivePowerups, setPowerupInventory, setPlayerHealth,
     setStreakCount, setLastStreakTimestamp, startLevel,
   });
 
@@ -396,23 +402,23 @@ export default function App() {
   }, [isPaused, activePowerups, exitPos, playSound]);
 
   const useJump = useCallback(() => {
-    if (activePowerups.jump <= 0) return;
+    if ((powerupInventoryRef.current['jump'] || 0) <= 0) return;
     const dirMap: Record<string, { dx: number; dy: number }> = {
       right: { dx: 1, dy: 0 }, left: { dx: -1, dy: 0 },
       down: { dx: 0, dy: 1 }, up: { dx: 0, dy: -1 },
     };
     const { dx, dy } = dirMap[moveDirection];
-    setActivePowerups((prev) => ({ ...prev, jump: prev.jump - 1 }));
+    setPowerupInventory((prev) => ({ ...prev, jump: Math.max(0, (prev.jump || 0) - 1) }));
     performJump(dx, dy);
-  }, [activePowerups.jump, moveDirection, performJump]);
+  }, [moveDirection, performJump]);
 
   const useJumpPro = useCallback(() => {
-    if (activePowerups.jumpPro <= 0) return;
+    if ((powerupInventoryRef.current['jumpPro'] || 0) <= 0) return;
     setJumpProActive(true);
-  }, [activePowerups.jumpPro]);
+  }, []);
 
   const executeJumpPro = useCallback((dx: number, dy: number) => {
-    setActivePowerups((prev) => ({ ...prev, jumpPro: prev.jumpPro - 1 }));
+    setPowerupInventory((prev) => ({ ...prev, jumpPro: Math.max(0, (prev.jumpPro || 0) - 1) }));
     setJumpProActive(false);
     performJump(dx, dy);
   }, [performJump]);
@@ -422,21 +428,34 @@ export default function App() {
   }, []);
 
   const useTeleport = useCallback(() => {
-    if (activePowerups.teleport <= 0) return;
+    if ((powerupInventoryRef.current['teleport'] || 0) <= 0) return;
     const path = findPath(playerPosRef.current, exitPos, mazeRef.current);
     // path[0] is current pos, path[last] is exit — pick from positions 1..length-2
     if (path.length < 2) return;
     const candidates = path.slice(1, -1);
     if (candidates.length === 0) return;
     const target = candidates[Math.floor(Math.random() * candidates.length)];
-    setActivePowerups((prev) => ({ ...prev, teleport: prev.teleport - 1 }));
+    setPowerupInventory((prev) => ({ ...prev, teleport: Math.max(0, (prev.teleport || 0) - 1) }));
     setPlayerPos(target);
     setVisitedCells((prev) => new Set(prev).add(`${target.x},${target.y}`));
     setPlayerTrail((prev) => [{ x: target.x, y: target.y, id: Date.now() }, ...prev.slice(0, 4)]);
     setIsDashing(true);
     setTimeout(() => setIsDashing(false), 300);
     playSound(1400, 'sine', 0.3, 0.15);
-  }, [activePowerups.teleport, exitPos, playSound]);
+  }, [exitPos, playSound]);
+
+  // Activate a timed powerup from inventory → sets activePowerups timer
+  const activatePowerup = useCallback((id: string) => {
+    if ((powerupInventoryRef.current[id] || 0) <= 0) return;
+    setPowerupInventory((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] || 0) - 1) }));
+    if (id === 'shield') setActivePowerups((p) => ({ ...p, shield: true }));
+    if (id === 'speed') setActivePowerups((p) => ({ ...p, speed: Date.now() + 30000 }));
+    if (id === 'map') setActivePowerups((p) => ({ ...p, map: Date.now() + 60000 }));
+    if (id === 'ghost') setActivePowerups((p) => ({ ...p, ghost: Math.min(99, p.ghost + 1) }));
+    if (id === 'magnet') setActivePowerups((p) => ({ ...p, magnet: Date.now() + 15000 }));
+    if (id === 'freeze') setActivePowerups((p) => ({ ...p, freeze: Date.now() + 10000 }));
+    playSound(1200, 'sine', 0.3);
+  }, [playSound]);
 
   // Magnet: auto-collect coins within 3 cells every 300ms
   useEffect(() => {
@@ -573,6 +592,8 @@ export default function App() {
             lastDailyCompleted={lastDailyCompleted}
             setShowAchievements={setShowAchievements}
             setShowLeaderboard={setShowLeaderboard}
+            setShowShop={setShowShop}
+            setShowSettings={setShowSettings}
             hasSavedGame={hasSavedGame}
             loadSavedGame={loadSavedGame}
             coins={coins}
@@ -631,18 +652,20 @@ export default function App() {
             controlScheme={controlScheme}
             setShowShop={setShowShop}
             setShowAchievements={setShowAchievements}
-            jumpCount={activePowerups.jump}
-            jumpProCount={activePowerups.jumpPro}
+            jumpCount={powerupInventory.jump || 0}
+            jumpProCount={powerupInventory.jumpPro || 0}
             jumpProActive={jumpProActive}
             useJump={useJump}
             useJumpPro={useJumpPro}
             executeJumpPro={executeJumpPro}
             cancelJumpPro={cancelJumpPro}
-            teleportCount={activePowerups.teleport}
+            teleportCount={powerupInventory.teleport || 0}
             useTeleport={useTeleport}
             ghostCount={activePowerups.ghost}
             magnetActive={activePowerups.magnet > Date.now()}
             freezeActive={activePowerups.freeze > Date.now()}
+            powerupInventory={powerupInventory}
+            activatePowerup={activatePowerup}
             streakReward={streakReward}
           />
         )}
@@ -723,6 +746,7 @@ export default function App() {
         buyPowerup={buyPowerup}
         buyCoins={buyCoins}
         currentLevel={currentLevel}
+        powerupInventory={powerupInventory}
       />
       <TutorialModal
         activeTutorial={activeTutorial}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Zap, Map, KeyRound, Ghost, Magnet, Snowflake } from 'lucide-react';
+import { Shield, Zap, Map, KeyRound, Ghost, Magnet, Snowflake, Play, Home, RotateCcw } from 'lucide-react';
 import { ThemeType, Point, PowerupState, ActiveModifier, JoystickState, TrailPoint, GameState, StreakReward } from '../types';
 import { THEMES } from '../constants';
 import GameHeader from './GameHeader';
@@ -57,6 +57,8 @@ interface GameUIProps {
   ghostCount: number;
   magnetActive: boolean;
   freezeActive: boolean;
+  powerupInventory: Record<string, number>;
+  activatePowerup: (id: string) => void;
   streakReward: StreakReward | null;
 }
 
@@ -66,10 +68,11 @@ const GameUI: React.FC<GameUIProps> = ({
   damageFlash, isBumping, dynamicCellSize, playerPos, maze, puzzleState,
   breakableWallsHealth, isDoorOpen, visitedCells, isHintActive, hintPath,
   exitPos, playerTrail, joystick, setJoystick, movePlayer,
-  isPaused, startLevel, controlScheme,
+  isPaused, setGameState, startLevel, controlScheme,
   isDashing = false, moveDirection = 'right',
   jumpCount, jumpProCount, jumpProActive, useJump, useJumpPro, executeJumpPro, cancelJumpPro,
-  teleportCount, useTeleport, ghostCount, magnetActive, freezeActive, streakReward,
+  teleportCount, useTeleport, ghostCount, magnetActive, freezeActive,
+  powerupInventory, activatePowerup, streakReward,
 }) => (
   <motion.div
     key="playing"
@@ -204,7 +207,61 @@ const GameUI: React.FC<GameUIProps> = ({
       useJumpPro={useJumpPro}
       teleportCount={teleportCount}
       useTeleport={useTeleport}
+      powerupInventory={powerupInventory}
+      activatePowerup={activatePowerup}
     />
+
+    {/* Pause overlay */}
+    <AnimatePresence>
+      {isPaused && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.85, opacity: 0, y: 20 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center gap-3 w-64 px-6 py-8 bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl"
+          >
+            <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold mb-1">
+              ⏸ paused
+            </div>
+            <div className="text-xl font-black italic tracking-tight text-white mb-2">
+              Take a breath 😮‍💨
+            </div>
+
+            <button
+              onClick={() => setIsPaused(false)}
+              className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-cyan-500 to-purple-600 text-white font-black rounded-xl text-sm tracking-widest hover:opacity-90 transition-opacity active:scale-95"
+            >
+              <Play size={16} fill="currentColor" />
+              RESUME
+            </button>
+
+            <button
+              onClick={() => startLevel(currentLevel)}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-900 text-zinc-300 font-bold rounded-xl text-sm border border-zinc-800 hover:border-zinc-600 transition-colors active:scale-95"
+            >
+              <RotateCcw size={15} />
+              RESTART LEVEL
+            </button>
+
+            <button
+              onClick={() => { setIsPaused(false); setGameState('start'); }}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-900 text-zinc-500 font-bold rounded-xl text-sm border border-zinc-800 hover:border-zinc-600 hover:text-zinc-300 transition-all active:scale-95"
+            >
+              <Home size={15} />
+              HOME
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
 
     {/* Streak reward toast */}
     <AnimatePresence>

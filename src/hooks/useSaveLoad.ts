@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { GameMode, ThemeType, PowerupState } from '../types';
+import { GameMode, ThemeType, PowerupState, PowerupInventory } from '../types';
 
 interface SaveData {
   currentLevel: number;
@@ -39,6 +39,7 @@ interface UseSaveLoadProps {
   setGameMode: (v: GameMode) => void;
   setTheme: (v: ThemeType) => void;
   setActivePowerups: (v: PowerupState) => void;
+  setPowerupInventory: (fn: (prev: PowerupInventory) => PowerupInventory) => void;
   setPlayerHealth: (v: number) => void;
   setStreakCount: (v: number) => void;
   setLastStreakTimestamp: (v: number) => void;
@@ -62,7 +63,19 @@ const applyParsedSave = (
   setters.setUnlockedGameModes(data.unlockedGameModes || ['normal']);
   setters.setGameMode(data.gameMode || 'normal');
   setters.setTheme(data.theme || 'default');
-  setters.setActivePowerups(data.activePowerups || { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 });
+  const saved = data.activePowerups || { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 };
+  // Migrate legacy count-based powerups from activePowerups → inventory
+  const { jump = 0, jumpPro = 0, ghost = 0, teleport = 0 } = saved;
+  if (jump > 0 || jumpPro > 0 || ghost > 0 || teleport > 0) {
+    setters.setPowerupInventory((prev) => ({
+      ...prev,
+      jump: (prev.jump || 0) + jump,
+      jumpPro: (prev.jumpPro || 0) + jumpPro,
+      ghost: (prev.ghost || 0) + ghost,
+      teleport: (prev.teleport || 0) + teleport,
+    }));
+  }
+  setters.setActivePowerups({ ...saved, jump: 0, jumpPro: 0, ghost: 0, teleport: 0 });
   setters.setStreakCount(data.streakCount || 0);
   setters.setLastStreakTimestamp(data.lastStreakTimestamp || 0);
 };
@@ -72,13 +85,13 @@ export const useSaveLoad = ({
   setUnlockedThemes, setUnlockedAchievements, setCoins, setLastDailyCompleted,
   setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
   setShownTutorials, setUnlockedGameModes, setGameMode, setTheme,
-  setActivePowerups, setPlayerHealth, setStreakCount, setLastStreakTimestamp, startLevel,
+  setActivePowerups, setPowerupInventory, setPlayerHealth, setStreakCount, setLastStreakTimestamp, startLevel,
 }: UseSaveLoadProps) => {
   const setters = {
     setHasSavedGame, setUnlockedThemes, setUnlockedAchievements, setCoins,
     setLastDailyCompleted, setSoundEnabled, setSfxVolume, setMusicVolume,
     setControlScheme, setShownTutorials, setUnlockedGameModes,
-    setGameMode, setTheme, setActivePowerups, setStreakCount, setLastStreakTimestamp,
+    setGameMode, setTheme, setActivePowerups, setPowerupInventory, setStreakCount, setLastStreakTimestamp,
   };
   const settersRef = useRef(setters);
   settersRef.current = setters;

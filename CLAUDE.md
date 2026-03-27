@@ -1,7 +1,7 @@
 # Labyrinth Explorer — Claude regels
 
 ## Beschermde systemen (nooit aanpassen tenzij expliciet gevraagd)
-spelerbeweging · maze generation · collision · save/load · audio · achievements · coin spawning
+spelerbeweging · maze generation · collision · save/load · audio · achievements · coin spawning · shop · economy (powerupInventory · buyPowerup · activatePowerup)
 
 ## Bestandsmap (lees alleen wat de taak raakt)
 | Systeem | Bestand(en) |
@@ -44,3 +44,4 @@ spelerbeweging · maze generation · collision · save/load · audio · achievem
 ## Regels
 - Geen duplicate logica · geen extra features · geen onnodige refactors
 - Minimale wijzigingen · simpel en logisch
+- Houd je antworden beknopt en zo kort mogelijk
