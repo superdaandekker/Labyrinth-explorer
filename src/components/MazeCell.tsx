@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Zap, Map, Skull, Sparkles, KeyRound, Lock } from 'lucide-react';
 import { ThemeType } from '../types';
-import { THEMES, ILLUSIONARY_WALL, WALL, BREAKABLE_WALL, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, COIN, PRESSURE_PLATE, LEVER, DOOR, SPIKES, POISON_GAS, PATH, KEY, KEY_DOOR, KEY_BLUE, KEY_DOOR_BLUE, KEY_GREEN, KEY_DOOR_GREEN, KEY_YELLOW, KEY_DOOR_YELLOW, KEY_PURPLE, KEY_DOOR_PURPLE, HIDDEN_BUTTON, TOGGLE_WALL } from '../constants';
+import { THEMES, ILLUSIONARY_WALL, WALL, BREAKABLE_WALL, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, COIN, PRESSURE_PLATE, LEVER, DOOR, SPIKES, POISON_GAS, PATH, KEY, KEY_DOOR, KEY_BLUE, KEY_DOOR_BLUE, KEY_GREEN, KEY_DOOR_GREEN, KEY_YELLOW, KEY_DOOR_YELLOW, KEY_PURPLE, KEY_DOOR_PURPLE, HIDDEN_BUTTON, TOGGLE_WALL, PREMIUM_LOOT } from '../constants';
 
 // Visuele stijl per gekleurde sleutel
 const COLOR_KEY_STYLE: Record<number, string> = {
@@ -251,6 +251,18 @@ const MazeCell = memo(({
             transition={{ repeat: Infinity, duration: 3 }}
             className="w-2 h-2 rounded-full border border-violet-400/40 bg-violet-500/20"
           />
+        </div>
+      )}
+
+      {cell === PREMIUM_LOOT && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.div
+            animate={{ scale: [1, 1.3, 1], rotate: [0, 15, -15, 0], opacity: [0.8, 1, 0.8] }}
+            transition={{ repeat: Infinity, duration: 1.8 }}
+            className="w-6 h-6 bg-yellow-400/30 rounded-full border border-yellow-300 flex items-center justify-center text-yellow-300 shadow-[0_0_14px_rgba(253,224,71,0.8)]"
+          >
+            <Sparkles size={13} />
+          </motion.div>
         </div>
       )}
 

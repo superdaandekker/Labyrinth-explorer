@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Point, GameState, GameMode, ThemeType, PowerupState, PowerupInventory, ActiveModifier, JoystickState, TrailPoint, TutorialConfig, StreakReward } from './types';
-import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, KEY_BLUE, KEY_DOOR_BLUE, KEY_GREEN, KEY_DOOR_GREEN, KEY_YELLOW, KEY_DOOR_YELLOW, KEY_PURPLE, KEY_DOOR_PURPLE, ILLUSIONARY_WALL, HIDDEN_BUTTON, TOGGLE_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, VILLAIN_BASE_INTERVAL, HARD_MILESTONES, GAME_MODES } from './constants';
-import { findPath } from './utils/mazeGenerator';
+import { CELL_SIZE, WALL, PATH, BREAKABLE_WALL, COIN, PRESSURE_PLATE, DOOR, LEVER, SPIKES, POISON_GAS, POWERUP_SHIELD, POWERUP_SPEED, POWERUP_MAP, KEY, KEY_DOOR, KEY_BLUE, KEY_DOOR_BLUE, KEY_GREEN, KEY_DOOR_GREEN, KEY_YELLOW, KEY_DOOR_YELLOW, KEY_PURPLE, KEY_DOOR_PURPLE, ILLUSIONARY_WALL, HIDDEN_BUTTON, TOGGLE_WALL, VIEWPORT_SIZE, THEMES, TUTORIALS, VILLAIN_BASE_INTERVAL, HARD_MILESTONES, GAME_MODES, PREMIUM_LOOT, POWERUPS } from './constants';
+import { findPath, getPremiumLootMap } from './utils/mazeGenerator';
 
 import { useAudio } from './hooks/useAudio';
 import { useGameLogic } from './hooks/useGameLogic';
@@ -25,6 +25,7 @@ import AchievementsModal from './components/Modals/AchievementsModal';
 import LeaderboardModal from './components/Modals/LeaderboardModal';
 import TutorialModal from './components/Modals/TutorialModal';
 import EndScreen from './components/EndScreen';
+import PremiumSummaryScreen from './components/PremiumSummaryScreen';
 
 // Gekleurde sleutel-deur paren: [sleuteltype, deurtype]
 const COLOR_KEY_PAIRS: [number, number][] = [
@@ -82,6 +83,9 @@ export default function App() {
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [joystick, setJoystick] = useState<JoystickState | null>(null);
+  // BUG-034/FEAT-001: feedback bij geblokkeerde acties
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
+  const blockedMsgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consecutiveMovesRef = useRef<{ dx: number; dy: number; count: number }>({ dx: 0, dy: 0, count: 0 });
   const [shownTutorials, setShownTutorials] = useState<Set<string>>(new Set());
   const [activeTutorial, setActiveTutorial] = useState<TutorialConfig | null>(null);
@@ -93,6 +97,8 @@ export default function App() {
   const [heldColorKeys, setHeldColorKeys] = useState<Set<number>>(new Set());
   const [usedKeyThisLevel, setUsedKeyThisLevel] = useState(false);
   const [coinsCollected, setCoinsCollected] = useState(0);
+  const [premiumLootMap, setPremiumLootMap] = useState<Record<string, string>>({});
+  const [premiumCollected, setPremiumCollected] = useState<Record<string, number>>({});
 
   // Hard mode: villain
   const [villainPos, setVillainPos] = useState<Point | null>(null);
@@ -110,6 +116,7 @@ export default function App() {
   const gameStateRef = useRef(gameState);
   const puzzleStateRef = useRef(puzzleState);
   const isPausedRef = useRef(isPaused);
+  const activePowerupsRef = useRef(activePowerups);
   const lastMoveTimeRef = useRef(0);
   const autoSaveRef = useRef({
     currentLevel, gameMode, soundEnabled, theme, coins,
@@ -117,6 +124,8 @@ export default function App() {
     sfxVolume, musicVolume, controlScheme, shownTutorials,
     gameState, unlockedGameModes, activePowerups, playerHealth,
     streakCount, lastStreakTimestamp,
+    // BUG-040: daily challenge vlag meenemen in auto-save
+    isDailyChallenge,
   });
 
   useEffect(() => {
@@ -125,8 +134,9 @@ export default function App() {
     gameStateRef.current = gameState;
     puzzleStateRef.current = puzzleState;
     isPausedRef.current = isPaused;
+    activePowerupsRef.current = activePowerups;
     powerupInventoryRef.current = powerupInventory;
-  }, [playerPos, maze, gameState, puzzleState, isPaused, powerupInventory]);
+  }, [playerPos, maze, gameState, puzzleState, isPaused, activePowerups, powerupInventory]);
   useEffect(() => { villainRef.current = villainPos; }, [villainPos]);
   useEffect(() => { adReviveCountRef.current = adReviveCount; }, [adReviveCount]);
   useEffect(() => { localStorage.setItem('powerupInventory', JSON.stringify(powerupInventory)); }, [powerupInventory]);
@@ -136,9 +146,9 @@ export default function App() {
       unlockedThemes, unlockedAchievements, lastDailyCompleted,
       sfxVolume, musicVolume, controlScheme, shownTutorials,
       gameState, unlockedGameModes, activePowerups, playerHealth,
-      streakCount, lastStreakTimestamp,
+      streakCount, lastStreakTimestamp, isDailyChallenge,
     };
-  }, [currentLevel, gameMode, soundEnabled, theme, coins, unlockedThemes, unlockedAchievements, lastDailyCompleted, sfxVolume, musicVolume, controlScheme, shownTutorials, gameState, unlockedGameModes, activePowerups, playerHealth, streakCount, lastStreakTimestamp]);
+  }, [currentLevel, gameMode, soundEnabled, theme, coins, unlockedThemes, unlockedAchievements, lastDailyCompleted, sfxVolume, musicVolume, controlScheme, shownTutorials, gameState, unlockedGameModes, activePowerups, playerHealth, streakCount, lastStreakTimestamp, isDailyChallenge]);
 
   // Audio — playSound available via hook
   const { playSound } = useAudio({ soundEnabled, sfxVolume, musicVolume, gameState, exitPos, playerPosRef });
@@ -187,7 +197,9 @@ export default function App() {
     setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
     setShownTutorials, setUnlockedGameModes,
     setGameMode, setTheme, setActivePowerups, setPowerupInventory, setPlayerHealth,
-    setStreakCount, setLastStreakTimestamp, startLevel,
+    setStreakCount, setLastStreakTimestamp,
+    // BUG-040: daily challenge state herstellen bij laden
+    setIsDailyChallenge, startLevel,
   });
 
   useEffect(() => {
@@ -225,6 +237,105 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [gameState, maze]);
 
+  // IMP-002/003: Centrale tile-effect + damage functie — gebruikt door movePlayer, performJump en useTeleport
+  const applyTileEffects = useCallback((x: number, y: number, cell: number) => {
+    if (cell === COIN) {
+      setCoins((prev) => prev + 10);
+      setCoinsCollected((prev) => prev + 1);
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(1200, 'sine', 0.1, 0.1);
+    } else if (cell === PREMIUM_LOOT) {
+      const lootId = premiumLootMap[`${x},${y}`];
+      if (lootId) {
+        setPremiumCollected((prev) => ({ ...prev, [lootId]: (prev[lootId] || 0) + 1 }));
+        setPowerupInventory((prev) => ({ ...prev, [lootId]: (prev[lootId] || 0) + 1 }));
+      }
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(1600, 'sine', 0.25, 0.12);
+    } else if (cell === POWERUP_SHIELD) {
+      setActivePowerups((prev) => ({ ...prev, shield: true }));
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(800, 'sine', 0.3);
+    } else if (cell === POWERUP_SPEED) {
+      setActivePowerups((prev) => ({ ...prev, speed: Date.now() + 10000 }));
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(1000, 'sine', 0.3);
+    } else if (cell === POWERUP_MAP) {
+      setActivePowerups((prev) => ({ ...prev, map: Date.now() + 5000 }));
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(900, 'sine', 0.3);
+    } else if (cell === KEY) {
+      setHasKey(true);
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(1400, 'sine', 0.3);
+      if (!shownTutorials.has('key')) {
+        setActiveTutorial(TUTORIALS.key);
+        setShownTutorials((prev) => new Set(prev).add('key'));
+      }
+    } else if (cell === KEY_DOOR && hasKey) {
+      setHasKey(false);
+      setUsedKeyThisLevel(true);
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(600, 'square', 0.3);
+    } else if (COLOR_KEY_PAIRS.some(([k]) => cell === k)) {
+      const [keyType] = COLOR_KEY_PAIRS.find(([k]) => cell === k)!;
+      setHeldColorKeys(prev => new Set([...prev, keyType]));
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(1400, 'sine', 0.3);
+    } else if (COLOR_KEY_PAIRS.some(([k, d]) => cell === d && heldColorKeys.has(k))) {
+      const [keyType] = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && heldColorKeys.has(k))!;
+      setHeldColorKeys(prev => { const next = new Set(prev); next.delete(keyType); return next; });
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(600, 'square', 0.3);
+    } else if (cell === HIDDEN_BUTTON) {
+      setPuzzleState((prev) => {
+        const next = new Set(prev);
+        next.add(`${x},${y}`);
+        next.add('toggle_walls_open');
+        return next;
+      });
+      // BUG-012: verwijder knop na eerste druk — toggle kan niet meer teruggedraaid worden
+      setMaze((prev) => { const next = prev.map(r => [...r]); next[y][x] = PATH; return next; });
+      playSound(700, 'sine', 0.3, 0.1);
+    } else if (cell === PRESSURE_PLATE || cell === LEVER) {
+      setPuzzleState((prev) => new Set(prev).add(`${x},${y}`));
+      setIsDoorOpen(true);
+      playSound(400, 'square', 0.2);
+    } else if (cell === SPIKES || cell === POISON_GAS) {
+      if (activePowerups.shield) {
+        setActivePowerups((prev) => ({ ...prev, shield: false }));
+        playSound(200, 'square', 0.3);
+      } else if (activePowerups.freeze > Date.now()) {
+        // Freeze actief — geen schade
+      } else {
+        setPlayerHealth((prev) => {
+          const next = prev - 1;
+          if (next <= 0) setGameState('gameover');
+          return next;
+        });
+        setDamageFlash(true);
+        setTimeout(() => setDamageFlash(false), 200);
+        playSound(100, 'square', 0.4);
+      }
+    }
+    // Exit check
+    if (x === exitPos.x && y === exitPos.y) {
+      if (activeModifier?.id === 'COLLECT_ALL_COINS') {
+        const hasCoins = mazeRef.current.some((row) => row.includes(COIN));
+        if (hasCoins) { playSound(200, 'sine', 0.2); return; }
+      }
+      setGameState('won');
+      playSound(880, 'sine', 0.5);
+    }
+  }, [activePowerups, heldColorKeys, hasKey, exitPos, shownTutorials, premiumLootMap, playSound, activeModifier]);
+
+  // BUG-034/FEAT-001: toon korte geblokkeerde-actie melding
+  const showBlocked = useCallback((msg: string) => {
+    if (blockedMsgTimerRef.current) clearTimeout(blockedMsgTimerRef.current);
+    setBlockedMessage(msg);
+    blockedMsgTimerRef.current = setTimeout(() => setBlockedMessage(null), 1200);
+  }, []);
+
   // Movement Logic (PROTECTED)
   const movePlayer = useCallback((dx: number, dy: number) => {
     if (gameState !== 'playing' || isPaused) return;
@@ -256,6 +367,7 @@ export default function App() {
       setIsBumping(true);
       setTimeout(() => setIsBumping(false), 100);
       playSound(150, 'sine', 0.05, 0.05);
+      showBlocked('🔑 Sleutel nodig');
       return;
     }
     const colorDoorBlocked = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && !heldColorKeys.has(k));
@@ -263,6 +375,7 @@ export default function App() {
       setIsBumping(true);
       setTimeout(() => setIsBumping(false), 100);
       playSound(150, 'sine', 0.05, 0.05);
+      showBlocked('🔑 Gekleurde sleutel nodig');
       return;
     }
 
@@ -287,10 +400,17 @@ export default function App() {
     }
 
     const toggleOpen = puzzleStateRef.current.has('toggle_walls_open');
-    if (cell === WALL || (cell === DOOR && !isDoorOpen) || (cell === TOGGLE_WALL && !toggleOpen)) {
+    if (cell === WALL || (cell === TOGGLE_WALL && !toggleOpen)) {
       setIsBumping(true);
       setTimeout(() => setIsBumping(false), 100);
       playSound(150, 'sine', 0.05, 0.05);
+      return;
+    }
+    if (cell === DOOR && !isDoorOpen) {
+      setIsBumping(true);
+      setTimeout(() => setIsBumping(false), 100);
+      playSound(150, 'sine', 0.05, 0.05);
+      showBlocked('🚪 Deur vergrendeld');
       return;
     }
 
@@ -299,6 +419,7 @@ export default function App() {
         setIsBumping(true);
         setTimeout(() => setIsBumping(false), 100);
         playSound(150, 'sine', 0.05, 0.05);
+        showBlocked('🔨 Hamer nodig');
         return;
       }
       const wallKey = `${newX},${newY}`;
@@ -325,85 +446,7 @@ export default function App() {
     setVisitedCells((prev) => new Set(prev).add(`${newX},${newY}`));
     setPlayerTrail((prev) => [{ x: newX, y: newY, id: now }, ...prev.slice(0, 4)]);
 
-    if (cell === COIN) {
-      setCoins((prev) => prev + 10);
-      setCoinsCollected((prev) => prev + 1);
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(1200, 'sine', 0.1, 0.1);
-    } else if (cell === POWERUP_SHIELD) {
-      setActivePowerups((prev) => ({ ...prev, shield: true }));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(800, 'sine', 0.3);
-    } else if (cell === POWERUP_SPEED) {
-      setActivePowerups((prev) => ({ ...prev, speed: Date.now() + 10000 }));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(1000, 'sine', 0.3);
-    } else if (cell === POWERUP_MAP) {
-      setActivePowerups((prev) => ({ ...prev, map: Date.now() + 5000 }));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(900, 'sine', 0.3);
-    } else if (cell === KEY) {
-      setHasKey(true);
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(1400, 'sine', 0.3);
-      if (!shownTutorials.has('key')) {
-        setActiveTutorial(TUTORIALS.key);
-        setShownTutorials((prev) => new Set(prev).add('key'));
-      }
-    } else if (cell === KEY_DOOR && hasKey) {
-      setHasKey(false);
-      setUsedKeyThisLevel(true);
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(600, 'square', 0.3);
-    } else if (COLOR_KEY_PAIRS.some(([k]) => cell === k)) {
-      const [keyType] = COLOR_KEY_PAIRS.find(([k]) => cell === k)!;
-      setHeldColorKeys(prev => new Set([...prev, keyType]));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(1400, 'sine', 0.3);
-    } else if (COLOR_KEY_PAIRS.some(([k, d]) => cell === d && heldColorKeys.has(k))) {
-      const [keyType] = COLOR_KEY_PAIRS.find(([k, d]) => cell === d && heldColorKeys.has(k))!;
-      setHeldColorKeys(prev => { const next = new Set(prev); next.delete(keyType); return next; });
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(600, 'square', 0.3);
-    } else if (cell === HIDDEN_BUTTON) {
-      setPuzzleState((prev) => {
-        const next = new Set(prev);
-        next.add(`${newX},${newY}`);
-        if (next.has('toggle_walls_open')) next.delete('toggle_walls_open');
-        else next.add('toggle_walls_open');
-        return next;
-      });
-      playSound(700, 'sine', 0.3, 0.1);
-    } else if (cell === PRESSURE_PLATE || cell === LEVER) {
-      setPuzzleState((prev) => new Set(prev).add(`${newX},${newY}`));
-      setIsDoorOpen(true);
-      playSound(400, 'square', 0.2);
-    } else if (cell === SPIKES || cell === POISON_GAS) {
-      if (activePowerups.shield) {
-        setActivePowerups((prev) => ({ ...prev, shield: false }));
-        playSound(200, 'square', 0.3);
-      } else if (activePowerups.freeze > Date.now()) {
-        // Freeze active — no damage
-      } else {
-        setPlayerHealth((prev) => {
-          const next = prev - 1;
-          if (next <= 0) setGameState('gameover');
-          return next;
-        });
-        setDamageFlash(true);
-        setTimeout(() => setDamageFlash(false), 200);
-        playSound(100, 'square', 0.4);
-      }
-    }
-
-    if (newX === exitPos.x && newY === exitPos.y) {
-      if (activeModifier?.id === 'COLLECT_ALL_COINS') {
-        const hasCoins = mazeRef.current.some((row) => row.includes(COIN));
-        if (hasCoins) { playSound(200, 'sine', 0.2); return; }
-      }
-      setGameState('won');
-      playSound(880, 'sine', 0.5);
-    }
+    applyTileEffects(newX, newY, cell);
 
     if (!shownTutorials.has('movement')) {
       setActiveTutorial(TUTORIALS.movement);
@@ -415,7 +458,7 @@ export default function App() {
     }
   }, [
     gameState, isPaused, activePowerups, activeModifier, isDoorOpen, hasKey, heldColorKeys,
-    breakableWallsHealth, exitPos, shownTutorials, playSound,
+    breakableWallsHealth, shownTutorials, playSound, applyTileEffects,
   ]);
 
   // Jump: shared movement logic — 2 cells, no wall check
@@ -439,49 +482,8 @@ export default function App() {
     setIsDashing(true);
     setTimeout(() => setIsDashing(false), 200);
     playSound(880, 'sine', 0.2, 0.1);
-    if (cell === COIN) {
-      setCoins((prev) => prev + 10);
-      setCoinsCollected((prev) => prev + 1);
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-    } else if (cell === POWERUP_SHIELD) {
-      setActivePowerups((prev) => ({ ...prev, shield: true }));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-    } else if (cell === POWERUP_SPEED) {
-      setActivePowerups((prev) => ({ ...prev, speed: Date.now() + 10000 }));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-    } else if (cell === POWERUP_MAP) {
-      setActivePowerups((prev) => ({ ...prev, map: Date.now() + 5000 }));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-    } else if (cell === KEY) {
-      setHasKey(true);
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(1400, 'sine', 0.3);
-    } else if (COLOR_KEY_PAIRS.some(([k]) => cell === k)) {
-      const [keyType] = COLOR_KEY_PAIRS.find(([k]) => cell === k)!;
-      setHeldColorKeys(prev => new Set([...prev, keyType]));
-      setMaze((prev) => { const next = prev.map(r => [...r]); next[newY][newX] = PATH; return next; });
-      playSound(1400, 'sine', 0.3);
-    } else if (cell === SPIKES || cell === POISON_GAS) {
-      if (activePowerups.shield) {
-        setActivePowerups((prev) => ({ ...prev, shield: false }));
-      } else if (activePowerups.freeze > Date.now()) {
-        // Freeze active — no damage
-      } else {
-        setPlayerHealth((prev) => {
-          const next = prev - 1;
-          if (next <= 0) setGameState('gameover');
-          return next;
-        });
-        setDamageFlash(true);
-        setTimeout(() => setDamageFlash(false), 200);
-        playSound(100, 'square', 0.4);
-      }
-    }
-    if (newX === exitPos.x && newY === exitPos.y) {
-      setGameState('won');
-      playSound(880, 'sine', 0.5);
-    }
-  }, [isPaused, activePowerups, exitPos, playSound]);
+    applyTileEffects(newX, newY, cell);
+  }, [isPaused, playSound, applyTileEffects]);
 
   const useJump = useCallback(() => {
     if ((powerupInventoryRef.current['jump'] || 0) <= 0) return;
@@ -510,21 +512,29 @@ export default function App() {
   }, []);
 
   const useTeleport = useCallback(() => {
+    // BUG-031: zelfde inputregels als movePlayer / performJump
+    if (gameStateRef.current !== 'playing' || isPausedRef.current) return;
     if ((powerupInventoryRef.current['teleport'] || 0) <= 0) return;
-    const path = findPath(playerPosRef.current, exitPos, mazeRef.current);
+    const path = findPath(playerPosRef.current, exitPos, mazeRef.current, { walkDoors: true });
     // path[0] is current pos, path[last] is exit — pick from positions 1..length-2
     if (path.length < 2) return;
     const candidates = path.slice(1, -1);
     if (candidates.length === 0) return;
     const target = candidates[Math.floor(Math.random() * candidates.length)];
+    const cell = mazeRef.current[target.y][target.x];
     setPowerupInventory((prev) => ({ ...prev, teleport: Math.max(0, (prev.teleport || 0) - 1) }));
     setPlayerPos(target);
     setVisitedCells((prev) => new Set(prev).add(`${target.x},${target.y}`));
     setPlayerTrail((prev) => [{ x: target.x, y: target.y, id: Date.now() }, ...prev.slice(0, 4)]);
     setIsDashing(true);
     setTimeout(() => setIsDashing(false), 300);
-    playSound(1400, 'sine', 0.3, 0.15);
-  }, [exitPos, playSound]);
+    lastMoveTimeRef.current = Date.now();
+    // BUG-035: herkenbaar teleport geluid — sweep + pop
+    playSound(300, 'sawtooth', 0.1, 0.12);
+    setTimeout(() => playSound(1800, 'sine', 0.35, 0.15), 100);
+    // BUG-001/005/016/020/023: verwerk tile-interacties op doelpositie
+    applyTileEffects(target.x, target.y, cell);
+  }, [exitPos, playSound, applyTileEffects]);
 
   // Activate a timed powerup from inventory → sets activePowerups timer
   const activatePowerup = useCallback((id: string) => {
@@ -605,6 +615,8 @@ export default function App() {
       const m = mazeRef.current;
       const dist = Math.abs(vp.x - player.x) + Math.abs(vp.y - player.y);
       if (dist <= 1) {
+        // BUG-041: freeze beschermt ook tegen villain-schade
+        if (activePowerupsRef.current.freeze > Date.now()) return;
         setPlayerHealth(prev => {
           const next = prev - 1;
           if (next <= 0) setGameState('gameover');
@@ -627,18 +639,52 @@ export default function App() {
         return;
       }
       const path = findPath(vp, player, m);
-      if (path.length > 0) {
-        villainRef.current = path[0];
-        setVillainPos(path[0]);
+      if (path.length > 1) {
+        villainRef.current = path[1];
+        setVillainPos(path[1]);
       }
     }, interval);
     return () => clearInterval(timer);
   }, [gameMode, currentLevel, gameState]);
 
+  // BUG-004: Poison gas — schade over tijd terwijl speler op tegel staat (elke 1,5s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (gameStateRef.current !== 'playing' || isPausedRef.current) return;
+      const { x, y } = playerPosRef.current;
+      if (mazeRef.current[y]?.[x] !== POISON_GAS) return;
+      const ap = activePowerupsRef.current;
+      if (ap.shield) {
+        setActivePowerups((prev) => ({ ...prev, shield: false }));
+        playSound(200, 'square', 0.3);
+      } else if (ap.freeze > Date.now()) {
+        // Freeze actief — geen schade
+      } else {
+        setPlayerHealth((prev) => {
+          const next = prev - 1;
+          if (next <= 0) setGameState('gameover');
+          return next;
+        });
+        setDamageFlash(true);
+        setTimeout(() => setDamageFlash(false), 200);
+        playSound(100, 'square', 0.4);
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [playSound]);
+
   // Hard mode: ad-revive — reset teller bij nieuw level
   useEffect(() => {
     if (gameState === 'playing') setAdReviveCount(0);
   }, [currentLevel]);
+
+  // Premium mode: laad loot-map direct nadat generateMaze is aangeroepen
+  useEffect(() => {
+    if (gameMode === 'premium' && gameState === 'playing') {
+      setPremiumLootMap(getPremiumLootMap());
+      setPremiumCollected({});
+    }
+  }, [gameMode, gameState, currentLevel]);
 
   // Hard mode: mijlpaal-beloningen bij sector 10/20/30...
   useEffect(() => {
@@ -654,6 +700,13 @@ export default function App() {
   }, [currentLevel, gameState, gameMode]);
 
   // Hard mode: gratis revive na 3 advertenties
+  const handlePremiumBack = useCallback(() => {
+    // Premium moet opnieuw worden gekocht na elke run
+    setUnlockedGameModes((prev) => prev.filter((m) => m !== 'premium'));
+    setGameMode('normal');
+    setGameState('start');
+  }, []);
+
   const watchAdForRevive = useCallback(() => {
     const nextCount = adReviveCountRef.current + 1;
     setGameState('loading');
@@ -692,14 +745,14 @@ export default function App() {
         const current = Math.floor((Date.now() - start) / 1000);
         setElapsedTime(current);
         if (timeLimit !== null && current >= timeLimit) {
-          setGameState('gameover');
+          setGameState(gameMode === 'premium' ? 'premium_summary' : 'gameover');
           clearInterval(interval);
         }
       }, 1000);
       return () => clearInterval(interval);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, isPaused, timeLimit]);
+  }, [gameState, isPaused, timeLimit, gameMode]);
 
   return (
     <div className="min-h-screen dungeon-bg text-white font-sans selection:bg-violet-500/30 overflow-hidden flex items-center justify-center">
@@ -719,10 +772,28 @@ export default function App() {
           playerHealth={playerHealth}
           maxHealth={maxHealth}
           coins={coins}
+          hasKey={hasKey}
+          heldColorKeys={heldColorKeys}
           setShowShop={setShowShop}
           setShowSettings={setShowSettings}
         />
       )}
+
+      {/* BUG-034/FEAT-001: blocked action feedback toast */}
+      <AnimatePresence>
+        {blockedMessage && (
+          <motion.div
+            key={blockedMessage}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="fixed bottom-36 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-zinc-900/90 border border-zinc-700 rounded-xl text-sm font-bold text-zinc-200 shadow-xl backdrop-blur-sm pointer-events-none"
+          >
+            {blockedMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="wait">
         {gameState === 'start' && (
@@ -819,6 +890,15 @@ export default function App() {
           />
         )}
 
+        {gameState === 'premium_summary' && (
+          <PremiumSummaryScreen
+            coins={coins}
+            premiumCollected={premiumCollected}
+            elapsedTime={elapsedTime}
+            onBack={handlePremiumBack}
+          />
+        )}
+
         {(gameState === 'won' || gameState === 'complete' || gameState === 'gameover') && (() => {
           const runScore = calculateScore({ currentLevel, elapsedTime, moves, playerHealth, coinsCollected });
           const rank = getScoreRank(runScore);
@@ -886,7 +966,7 @@ export default function App() {
             unlockedThemes, unlockedAchievements, lastDailyCompleted,
             sfxVolume, musicVolume, controlScheme,
             Array.from(shownTutorials), unlockedGameModes, activePowerups, playerHealth,
-            streakCount, lastStreakTimestamp
+            streakCount, lastStreakTimestamp, isDailyChallenge
           )
         }
       />

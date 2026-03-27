@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'motion/react';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { ThemeType, Point, PowerupState, JoystickState, TrailPoint } from '../types';
@@ -44,9 +44,16 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
   jumpProActive, executeJumpPro, cancelJumpPro,
   isFogOfWar = false, villainPos = null,
 }) => {
+  // BUG-030: één move per swipe-gesture
+  const swipeMovedRef = useRef(false);
+  // BUG-029: joystick vuurt alleen bij richtingswisseling opnieuw onmiddellijk
+  const joystickLastDirRef = useRef('');
+
   const handlePanStart = (_e: PointerEvent, info: PanInfo) => {
+    swipeMovedRef.current = false;
     if (controlScheme !== 'joystick') return;
     setJoystick({ active: true, x: info.point.x, y: info.point.y, offsetX: 0, offsetY: 0 });
+    joystickLastDirRef.current = '';
   };
 
   const handlePan = (_e: PointerEvent, info: PanInfo) => {
@@ -59,19 +66,30 @@ const MazeViewport: React.FC<MazeViewportProps> = ({
       const limitedDy = dist > maxDist ? (dy / dist) * maxDist : dy;
       setJoystick({ ...joystick, offsetX: limitedDx, offsetY: limitedDy });
       if (dist > 20) {
+        const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'r' : 'l') : (dy > 0 ? 'd' : 'u');
+        // Sla richting op; movePlayer-throttle regelt frequentie van herhaalde moves
+        joystickLastDirRef.current = dir;
         if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
         else movePlayer(0, dy > 0 ? 1 : -1);
+      } else {
+        joystickLastDirRef.current = '';
       }
     } else if (controlScheme === 'swipe') {
+      if (swipeMovedRef.current) return; // BUG-030: blokkeer verdere moves in zelfde gesture
       const threshold = 30;
       if (Math.abs(info.offset.x) > threshold || Math.abs(info.offset.y) > threshold) {
         if (Math.abs(info.offset.x) > Math.abs(info.offset.y)) movePlayer(info.offset.x > 0 ? 1 : -1, 0);
         else movePlayer(0, info.offset.y > 0 ? 1 : -1);
+        swipeMovedRef.current = true;
       }
     }
   };
 
-  const handlePanEnd = () => setJoystick(null);
+  const handlePanEnd = () => {
+    setJoystick(null);
+    swipeMovedRef.current = false;
+    joystickLastDirRef.current = '';
+  };
 
   return (
     <motion.div

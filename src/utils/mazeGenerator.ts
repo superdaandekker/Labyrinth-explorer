@@ -10,7 +10,22 @@ export const seededRandom = (seed: number) => {
   return x - Math.floor(x);
 };
 
-export const findPath = (start: Point, end: Point, currentMaze: number[][]): Point[] => {
+// IMP-008: centrale walkability helper — walkDoors=false voor hints (BUG-011), true voor generatie
+const WALKABLE_ALWAYS = new Set([
+  PATH, COIN, KEY, KEY_BLUE, KEY_GREEN, KEY_YELLOW, KEY_PURPLE,
+  LEVER, PRESSURE_PLATE, HIDDEN_BUTTON, SPIKES, POISON_GAS,
+]);
+const WALKABLE_DOORS = new Set([KEY_DOOR, KEY_DOOR_BLUE, KEY_DOOR_GREEN, KEY_DOOR_YELLOW, KEY_DOOR_PURPLE, DOOR]);
+
+export const isWalkable = (cell: number, walkDoors = true): boolean =>
+  WALKABLE_ALWAYS.has(cell) || (walkDoors && WALKABLE_DOORS.has(cell));
+
+// BUG-011: default walkDoors=false zodat hints geen pad door vergrendelde deuren tonen
+export const findPath = (
+  start: Point, end: Point, currentMaze: number[][],
+  opts: { walkDoors?: boolean } = {}
+): Point[] => {
+  const walkDoors = opts.walkDoors ?? false;
   if (!currentMaze.length) return [];
   const queue: { pos: Point; path: Point[] }[] = [{ pos: start, path: [] }];
   const visited = new Set<string>();
@@ -31,11 +46,7 @@ export const findPath = (start: Point, end: Point, currentMaze: number[][]): Poi
       if (
         n.x >= 0 && n.x < currentMaze[0].length &&
         n.y >= 0 && n.y < currentMaze.length &&
-        (currentMaze[n.y][n.x] === PATH || currentMaze[n.y][n.x] === COIN ||
-          currentMaze[n.y][n.x] === KEY_DOOR || currentMaze[n.y][n.x] === KEY_DOOR_BLUE ||
-          currentMaze[n.y][n.x] === KEY_DOOR_GREEN || currentMaze[n.y][n.x] === KEY_DOOR_YELLOW ||
-          currentMaze[n.y][n.x] === KEY_DOOR_PURPLE || currentMaze[n.y][n.x] === DOOR ||
-          currentMaze[n.y][n.x] === LEVER || currentMaze[n.y][n.x] === PRESSURE_PLATE) &&
+        isWalkable(currentMaze[n.y][n.x], walkDoors) &&
         !visited.has(`${n.x},${n.y}`)
       ) {
         visited.add(`${n.x},${n.y}`);
@@ -45,6 +56,10 @@ export const findPath = (start: Point, end: Point, currentMaze: number[][]): Poi
   }
   return [];
 };
+
+// FEAT-006: maze-validatie — controleert of speler het uitgang kan bereiken
+export const validateMaze = (maze: number[][], playerPos: Point, exitPos: Point): boolean =>
+  findPath(playerPos, exitPos, maze, { walkDoors: true }).length > 0;
 
 export interface MazeData {
   maze: number[][];
@@ -246,7 +261,7 @@ export const generateMaze = (
     connections: {} as Record<string, string[]>
   };
   if (levelIdx >= leverThreshold) {
-    const path = findPath(playerPos, exitPos, newMaze);
+    const path = findPath(playerPos, exitPos, newMaze, { walkDoors: true });
     if (path.length > 10) {
       const doorIdx = Math.floor(path.length * 0.6);
       const doorPos = path[doorIdx];
@@ -338,7 +353,7 @@ export const generateMaze = (
     if (candidates.length > 0) {
       const toggleIdx = Math.floor(rnd() * candidates.length);
       newMaze[candidates[toggleIdx].y][candidates[toggleIdx].x] = TOGGLE_WALL;
-      const mainPath = findPath(playerPos, exitPos, newMaze);
+      const mainPath = findPath(playerPos, exitPos, newMaze, { walkDoors: true });
       for (let attempt = 0; attempt < 100; attempt++) {
         const bx = Math.floor(rnd() * (width - 2)) + 1;
         const by = Math.floor(rnd() * (height - 2)) + 1;
@@ -367,7 +382,7 @@ export const generateMaze = (
       [KEY_PURPLE, KEY_DOOR_PURPLE],
     ];
 
-    const mainPath = findPath(playerPos, exitPos, newMaze);
+    const mainPath = findPath(playerPos, exitPos, newMaze, { walkDoors: true });
     if (mainPath.length > doorCount * 6) {
       // Stap 1: deuren op evenredige posities op het hoofdpad
       const doorPositions: (Point | null)[] = [];

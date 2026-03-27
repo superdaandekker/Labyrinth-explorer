@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, MutableRefObject } from 'react';
 import { GameMode, ThemeType, PowerupState, PowerupInventory } from '../types';
 
+// IMP-031: centrale save-structuur — alle veldnamen consistent als camelCase
 interface SaveData {
   currentLevel: number;
   gameMode: GameMode;
@@ -20,7 +21,12 @@ interface SaveData {
   playerHealth: number;
   streakCount: number;
   lastStreakTimestamp: number;
+  // BUG-040: daily challenge onderscheid bewaard
+  isDailyChallenge: boolean;
 }
+
+const VALID_GAME_MODES: GameMode[] = ['normal', 'timed', 'premium', 'hard'];
+const VALID_THEMES: ThemeType[] = ['default', 'cyberpunk', 'ruins', 'forest'];
 
 interface UseSaveLoadProps {
   autoSaveRef: MutableRefObject<SaveData>;
@@ -43,27 +49,35 @@ interface UseSaveLoadProps {
   setPlayerHealth: (v: number) => void;
   setStreakCount: (v: number) => void;
   setLastStreakTimestamp: (v: number) => void;
+  // BUG-040: daily challenge state herstellen
+  setIsDailyChallenge: (v: boolean) => void;
   startLevel: (level: number) => void;
 }
 
+// IMP-032: validatie + fallback voor alle save-velden
 const applyParsedSave = (
   data: Record<string, any>,
   setters: Omit<UseSaveLoadProps, 'autoSaveRef' | 'activePowerups' | 'startLevel'>
 ) => {
   setters.setHasSavedGame(true);
-  setters.setCoins(typeof data.coins === 'number' ? data.coins : 0);
+  // BUG-039: valideer numerieke velden op range
+  const coins = typeof data.coins === 'number' ? Math.max(0, data.coins) : 0;
+  setters.setCoins(coins);
   setters.setUnlockedThemes(Array.isArray(data.unlockedThemes) ? data.unlockedThemes : ['default']);
   setters.setUnlockedAchievements(Array.isArray(data.unlockedAchievements) ? data.unlockedAchievements : []);
   setters.setLastDailyCompleted(typeof data.lastDailyCompleted === 'string' ? data.lastDailyCompleted : null);
   setters.setSoundEnabled(typeof data.soundEnabled === 'boolean' ? data.soundEnabled : true);
-  setters.setSfxVolume(typeof data.sfxVolume === 'number' ? data.sfxVolume : 0.5);
-  setters.setMusicVolume(typeof data.musicVolume === 'number' ? data.musicVolume : 0.3);
+  setters.setSfxVolume(typeof data.sfxVolume === 'number' ? Math.min(1, Math.max(0, data.sfxVolume)) : 0.5);
+  setters.setMusicVolume(typeof data.musicVolume === 'number' ? Math.min(1, Math.max(0, data.musicVolume)) : 0.3);
   setters.setControlScheme(data.controlScheme === 'joystick' ? 'joystick' : 'swipe');
   const rawTutorials = Array.isArray(data.shownTutorials) ? data.shownTutorials : [];
   setters.setShownTutorials(new Set(rawTutorials));
   setters.setUnlockedGameModes(Array.isArray(data.unlockedGameModes) ? data.unlockedGameModes : ['normal']);
-  setters.setGameMode(data.gameMode || 'normal');
-  setters.setTheme(data.theme || 'default');
+  // BUG-039: valideer gameMode en theme op geldige waarden
+  const gameMode: GameMode = VALID_GAME_MODES.includes(data.gameMode) ? data.gameMode : 'normal';
+  setters.setGameMode(gameMode);
+  const theme: ThemeType = VALID_THEMES.includes(data.theme) ? data.theme : 'default';
+  setters.setTheme(theme);
   const defaultPowerups = { shield: false, speed: 0, map: 0, jump: 0, jumpPro: 0, ghost: 0, magnet: 0, freeze: 0, teleport: 0 };
   const saved = (data.activePowerups && typeof data.activePowerups === 'object' && !Array.isArray(data.activePowerups))
     ? data.activePowerups : defaultPowerups;
@@ -79,8 +93,10 @@ const applyParsedSave = (
     }));
   }
   setters.setActivePowerups({ ...saved, jump: 0, jumpPro: 0, ghost: 0, teleport: 0 });
-  setters.setStreakCount(data.streakCount || 0);
-  setters.setLastStreakTimestamp(data.lastStreakTimestamp || 0);
+  setters.setStreakCount(typeof data.streakCount === 'number' ? Math.max(0, data.streakCount) : 0);
+  setters.setLastStreakTimestamp(typeof data.lastStreakTimestamp === 'number' ? data.lastStreakTimestamp : 0);
+  // BUG-040: daily challenge vlag herstellen
+  setters.setIsDailyChallenge(data.isDailyChallenge === true);
 };
 
 export const useSaveLoad = ({
@@ -88,17 +104,20 @@ export const useSaveLoad = ({
   setUnlockedThemes, setUnlockedAchievements, setCoins, setLastDailyCompleted,
   setSoundEnabled, setSfxVolume, setMusicVolume, setControlScheme,
   setShownTutorials, setUnlockedGameModes, setGameMode, setTheme,
-  setActivePowerups, setPowerupInventory, setPlayerHealth, setStreakCount, setLastStreakTimestamp, startLevel,
+  setActivePowerups, setPowerupInventory, setPlayerHealth, setStreakCount, setLastStreakTimestamp,
+  setIsDailyChallenge, startLevel,
 }: UseSaveLoadProps) => {
   const setters = {
     setHasSavedGame, setUnlockedThemes, setUnlockedAchievements, setCoins,
     setLastDailyCompleted, setSoundEnabled, setSfxVolume, setMusicVolume,
     setControlScheme, setShownTutorials, setUnlockedGameModes,
-    setGameMode, setTheme, setActivePowerups, setPowerupInventory, setStreakCount, setLastStreakTimestamp,
+    setGameMode, setTheme, setActivePowerups, setPowerupInventory,
+    setStreakCount, setLastStreakTimestamp, setIsDailyChallenge,
   };
   const settersRef = useRef(setters);
   settersRef.current = setters;
 
+  // IMP-031: consistente veldnamen (currentLevel ipv level), BUG-040: isDailyChallenge opslaan
   const saveProgress = useCallback(
     (
       levelIdx: number, mode: GameMode, sound: boolean, currentTheme: ThemeType,
@@ -106,10 +125,10 @@ export const useSaveLoad = ({
       daily: string | null, sfx: number, music: number,
       scheme: 'swipe' | 'joystick', tutorials: string[],
       unlockedModes: GameMode[], powerups?: PowerupState, health?: number,
-      streak?: number, streakTs?: number
+      streak?: number, streakTs?: number, isDaily?: boolean
     ) => {
       localStorage.setItem('labyrinth_save', JSON.stringify({
-        level: levelIdx, gameMode: mode, unlockedGameModes: unlockedModes,
+        currentLevel: levelIdx, gameMode: mode, unlockedGameModes: unlockedModes,
         theme: currentTheme, coins: currentCoins, unlockedThemes: unlocked,
         unlockedAchievements: achievements, lastDailyCompleted: daily,
         soundEnabled: sound, sfxVolume: sfx, musicVolume: music,
@@ -117,6 +136,7 @@ export const useSaveLoad = ({
         activePowerups: powerups || activePowerups,
         playerHealth: health ?? 3,
         streakCount: streak ?? 0, lastStreakTimestamp: streakTs ?? 0,
+        isDailyChallenge: isDaily ?? false,
         timestamp: Date.now(),
       }));
       setHasSavedGame(true);
@@ -135,7 +155,7 @@ export const useSaveLoad = ({
           s.sfxVolume, s.musicVolume, s.controlScheme,
           Array.from(s.shownTutorials as Iterable<string>),
           s.unlockedGameModes, s.activePowerups, s.playerHealth,
-          s.streakCount, s.lastStreakTimestamp
+          s.streakCount, s.lastStreakTimestamp, s.isDailyChallenge
         );
       }
     }, 120000);
@@ -160,10 +180,17 @@ export const useSaveLoad = ({
     try {
       const data = JSON.parse(saved);
       applyParsedSave(data, settersRef.current);
-      startLevel(data.level || 0);
-      setPlayerHealth(data.playerHealth ?? 3);
+      // IMP-031: gebruik currentLevel; val terug op legacy 'level' veld voor oude saves
+      const level = typeof data.currentLevel === 'number' ? data.currentLevel
+        : typeof data.level === 'number' ? data.level : 0;
+      // BUG-039: health valideren op geldig bereik (1–maxHealth; gebruik 3 als onbekend)
+      const health = typeof data.playerHealth === 'number' ? Math.max(1, data.playerHealth) : 3;
+      startLevel(level);
+      setPlayerHealth(health);
     } catch {
+      // IMP-032: corrupte save verwijderen + hasSavedGame resetten
       localStorage.removeItem('labyrinth_save');
+      settersRef.current.setHasSavedGame(false);
     }
   }, [startLevel]);
 
