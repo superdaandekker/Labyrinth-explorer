@@ -1,5 +1,5 @@
 import { Trophy, Zap, Eye, Coins, Sparkles, ShoppingBag, Shield, Map, Move, RotateCcw, ArrowUp, EyeOff, Gamepad2, Skull, KeyRound, Lock, Ghost, ChevronsUp, Crosshair, Magnet, Snowflake, Navigation } from 'lucide-react';
-import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier, StreakReward } from './types';
+import { GameMode, GameModeConfig, Achievement, ThemeType, ThemeConfig, PowerupConfig, TutorialConfig, DailyModifier, StreakReward, MilestoneBonus, DailyChallengeConfig } from './types';
 import React from 'react';
 
 // Maze cell type constants
@@ -196,48 +196,69 @@ export const DAILY_STREAK_REWARDS: StreakReward[] = [
   { type: 'coins', amount: 300 },                             // Day 7
   { type: 'powerup', powerupId: 'ghost', amount: 1 },         // Day 8
   { type: 'coins', amount: 500 },                             // Day 9
-  { type: 'milestone', amount: 0, label: 'streak_skin_1' },   // Day 10 🏆
+  { type: 'coins', amount: 200 },                             // Day 10 (+ mijlpaalbonus)
   { type: 'powerup', powerupId: 'magnet', amount: 1 },        // Day 11
   { type: 'coins', amount: 300 },                             // Day 12
-  { type: 'powerup', powerupId: 'jump', amount: 2 },          // Day 13
+  { type: 'powerup', powerupId: 'jump', amount: 1 },          // Day 13
   { type: 'powerup', powerupId: 'freeze', amount: 1 },        // Day 14
   { type: 'coins', amount: 500 },                             // Day 15
   { type: 'powerup', powerupId: 'teleport', amount: 1 },      // Day 16
-  { type: 'powerup', powerupId: 'jumpPro', amount: 2 },       // Day 17
+  { type: 'powerup', powerupId: 'jumpPro', amount: 1 },       // Day 17
   { type: 'coins', amount: 750 },                             // Day 18
-  { type: 'powerup', powerupId: 'ghost', amount: 2 },         // Day 19
-  { type: 'milestone', amount: 0, label: 'streak_skin_2' },   // Day 20 🏆
+  { type: 'powerup', powerupId: 'ghost', amount: 1 },         // Day 19
+  { type: 'coins', amount: 300 },                             // Day 20 (+ mijlpaalbonus)
   { type: 'coins', amount: 400 },                             // Day 21
-  { type: 'powerup', powerupId: 'magnet', amount: 2 },        // Day 22
+  { type: 'powerup', powerupId: 'magnet', amount: 1 },        // Day 22
   { type: 'coins', amount: 600 },                             // Day 23
-  { type: 'powerup', powerupId: 'freeze', amount: 2 },        // Day 24
+  { type: 'powerup', powerupId: 'freeze', amount: 1 },        // Day 24
   { type: 'coins', amount: 800 },                             // Day 25
-  { type: 'powerup', powerupId: 'teleport', amount: 2 },      // Day 26
+  { type: 'powerup', powerupId: 'teleport', amount: 1 },      // Day 26
   { type: 'coins', amount: 500 },                             // Day 27
-  { type: 'powerup', powerupId: 'ghost', amount: 3 },         // Day 28
+  { type: 'powerup', powerupId: 'ghost', amount: 1 },         // Day 28
   { type: 'coins', amount: 700 },                             // Day 29
-  { type: 'powerup', powerupId: 'jump', amount: 3 },          // Day 30
+  { type: 'coins', amount: 600 },                             // Day 30 (+ mijlpaalbonus)
   { type: 'coins', amount: 600 },                             // Day 31
-  { type: 'powerup', powerupId: 'jumpPro', amount: 3 },       // Day 32
+  { type: 'powerup', powerupId: 'jumpPro', amount: 1 },       // Day 32
   { type: 'coins', amount: 900 },                             // Day 33
-  { type: 'powerup', powerupId: 'magnet', amount: 3 },        // Day 34
+  { type: 'powerup', powerupId: 'magnet', amount: 1 },        // Day 34
   { type: 'coins', amount: 800 },                             // Day 35
-  { type: 'powerup', powerupId: 'freeze', amount: 3 },        // Day 36
+  { type: 'powerup', powerupId: 'freeze', amount: 1 },        // Day 36
   { type: 'coins', amount: 1000 },                            // Day 37
-  { type: 'powerup', powerupId: 'teleport', amount: 3 },      // Day 38
+  { type: 'powerup', powerupId: 'teleport', amount: 1 },      // Day 38
   { type: 'coins', amount: 900 },                             // Day 39
-  { type: 'powerup', powerupId: 'ghost', amount: 4 },         // Day 40
+  { type: 'coins', amount: 700 },                             // Day 40 (+ mijlpaalbonus)
   { type: 'coins', amount: 800 },                             // Day 41
-  { type: 'powerup', powerupId: 'magnet', amount: 4 },        // Day 42
+  { type: 'powerup', powerupId: 'magnet', amount: 1 },        // Day 42
   { type: 'coins', amount: 1000 },                            // Day 43
-  { type: 'powerup', powerupId: 'freeze', amount: 4 },        // Day 44
+  { type: 'powerup', powerupId: 'freeze', amount: 1 },        // Day 44
   { type: 'coins', amount: 900 },                             // Day 45
-  { type: 'powerup', powerupId: 'teleport', amount: 4 },      // Day 46
+  { type: 'powerup', powerupId: 'teleport', amount: 1 },      // Day 46
   { type: 'coins', amount: 1000 },                            // Day 47
-  { type: 'powerup', powerupId: 'jump', amount: 5 },          // Day 48
+  { type: 'powerup', powerupId: 'jump', amount: 1 },          // Day 48
   { type: 'coins', amount: 1000 },                            // Day 49
-  { type: 'milestone', amount: 1000, label: 'streak_skin_legendary' }, // Day 50 🌟
+  { type: 'coins', amount: 500 },                             // Day 50 (+ mijlpaalbonus)
 ];
+
+/** Extra milestone bonus paid on top of the regular daily reward at days 10/20/30/40/50. */
+export const MILESTONE_BONUSES: Record<number, MilestoneBonus> = {
+  10: { coins: 300,  powerupId: 'ghost' },
+  20: { coins: 600,  powerupId: 'freeze' },
+  30: { coins: 1000, powerupId: 'teleport' },
+  40: { coins: 1500, powerupId: 'jumpPro' },
+  50: { coins: 2500, powerupId: 'magnet' },
+};
+
+/**
+ * Fixed generation parameters for the Daily Challenge maze.
+ * mazeLevel 7 activates all hazard types: spikes, poison gas, lever/door puzzles,
+ * hidden buttons and toggle walls.
+ */
+export const DAILY_CHALLENGE_CONFIG: DailyChallengeConfig = {
+  mazeLevel: 7,
+  width: 31,
+  height: 31,
+  gameMode: 'hard',
+};
 
 export const TUTORIALS: Record<string, TutorialConfig> = {
   coins: {

@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
-import { GameMode, GameState, PowerupState, ActiveModifier, Point, TrailPoint } from '../types';
-import { GAME_MODES, ACHIEVEMENTS, DAILY_MODIFIERS, ILLUSIONARY_WALL, WALL } from '../constants';
+import { GameMode, GameState, PowerupState, ActiveModifier, Point, TrailPoint, DailyChallengeConfig } from '../types';
+import { GAME_MODES, ACHIEVEMENTS, ILLUSIONARY_WALL, WALL } from '../constants';
 import generateMaze, { findPath, seededRandom } from '../utils/mazeGenerator';
-import { getDailyModifierIndex } from '../utils/dailyChallenge';
 import { audioManager } from '../audio/audioManager';
 
 interface UseGameLogicProps {
@@ -64,15 +63,17 @@ export const useGameLogic = ({
   setUnlockedGameModes, setUnlockedAchievements, addEntry,
 }: UseGameLogicProps) => {
   const startLevel = useCallback(
-    (levelIdx: number, isNewGame = false, modifierOverride?: ActiveModifier | null) => {
-      const config = GAME_MODES[gameMode];
-      const width = config.baseSize + Math.floor(levelIdx / 2) * 2;
-      const height = config.baseSize + Math.floor(levelIdx / 2) * 2;
-      const seed = isDailyChallenge
+    (levelIdx: number, isNewGame = false, modifierOverride?: ActiveModifier | null, dailyOverride?: DailyChallengeConfig) => {
+      const effectiveGameMode = dailyOverride?.gameMode ?? gameMode;
+      const config = GAME_MODES[effectiveGameMode];
+      const width    = dailyOverride?.width    ?? (config.baseSize + Math.floor(levelIdx / 2) * 2);
+      const height   = dailyOverride?.height   ?? (config.baseSize + Math.floor(levelIdx / 2) * 2);
+      const mazeLevel = dailyOverride?.mazeLevel ?? levelIdx;
+      const seed = (isDailyChallenge || dailyOverride)
         ? parseInt(new Date().toISOString().split('T')[0].replace(/-/g, '')) + levelIdx
         : undefined;
 
-      const mazeData = generateMaze(width, height, seed, levelIdx, gameMode);
+      const mazeData = generateMaze(width, height, seed, mazeLevel, effectiveGameMode);
 
       // Post-process: replace ~15% of interior walls with ILLUSIONARY_WALL
       const effectiveModifier = modifierOverride !== undefined ? modifierOverride : activeModifier;

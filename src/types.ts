@@ -135,3 +135,15 @@ export interface DailyModifier {
   color: string;
   icon: ReactNode;
 }
+
+export interface MilestoneBonus {
+  coins: number;
+  powerupId: keyof PowerupState;
+}
+
+export interface DailyChallengeConfig {
+  mazeLevel: number;
+  width: number;
+  height: number;
+  gameMode: GameMode;
+}
